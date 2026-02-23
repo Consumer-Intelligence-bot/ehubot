@@ -1,0 +1,400 @@
+import { useMemo } from 'react';
+import {
+  ComposedChart, Area, Line,
+  XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer,
+} from 'recharts';
+import { useDashboard } from '../../context/DashboardContext';
+import KPICard from '../shared/KPICard';
+import Placeholder from '../shared/Placeholder';
+import { COLORS, FONT } from '../../utils/brandConstants';
+import { checkSuppression, checkTrendSuppression } from '../../utils/governance';
+import {
+  shoppingRate,
+  nonShoppingRate,
+  shoppingRateByMonth,
+  pcwUsageRate,
+  trendChange,
+  generateNarrative,
+} from '../../utils/measures/screen2Measures';
+import NarrativeCard from './NarrativeCard';
+
+// ── Shared card styles (matches KPICard internals) ─────────────────────────────
+
+const kpiCardStyle = {
+  backgroundColor: COLORS.white,
+  borderRadius: '8px',
+  boxShadow: '0 1px 4px rgba(0,0,0,0.10)',
+  padding: '16px',
+  minWidth: '160px',
+  fontFamily: FONT.family,
+};
+
+const kpiLabelStyle = {
+  fontSize: FONT.cardLabel,
+  color: '#444',
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+  lineHeight: 1.3,
+};
+
+const chartCard = {
+  backgroundColor: COLORS.white,
+  borderRadius: '8px',
+  boxShadow: '0 1px 4px rgba(0,0,0,0.10)',
+  padding: '16px',
+};
+
+const chartTitle = {
+  fontSize: '14px',
+  fontWeight: 'bold',
+  fontFamily: FONT.family,
+  color: '#333',
+  marginBottom: '12px',
+};
+
+// ── Trend KPI card (custom: CI Blue for arrow + value) ──────────────────────────
+
+function TrendKPICard({ marketTrend, marketSupp, insurerMode, insurerTrend, insurerSupp, indicative }) {
+  const showMarket = !!(marketTrend && marketSupp?.show);
+  const showInsurer = !!(insurerMode && insurerTrend && insurerSupp?.show);
+  const primaryTrend = insurerMode
+    ? (showInsurer ? insurerTrend : null)
+    : (showMarket ? marketTrend : null);
+
+  function trendLabel(trend) {
+    if (!trend) return '—';
+    const arrow = trend.changePts > 0 ? '▲' : trend.changePts < 0 ? '▼' : '—';
+    const prefix = trend.changePts > 0 ? '+' : '';
+    const pts = (trend.changePts * 100).toFixed(1);
+    return `${arrow} ${prefix}${pts}pts`;
+  }
+
+  return (
+    <div style={kpiCardStyle}>
+      <div style={kpiLabelStyle}>Trend</div>
+
+      {primaryTrend ? (
+        <>
+          <div style={{
+            fontSize: FONT.cardValue,
+            fontWeight: 'bold',
+            color: COLORS.blue,
+            margin: '8px 0 4px',
+            lineHeight: 1.1,
+          }}>
+            {trendLabel(primaryTrend)}
+          </div>
+
+          {indicative && (
+            <div style={{
+              display: 'inline-block',
+              fontSize: '10px',
+              color: '#F5A623',
+              border: '1px solid #F5A623',
+              borderRadius: '3px',
+              padding: '1px 5px',
+              marginBottom: '6px',
+            }}>
+              Indicative
+            </div>
+          )}
+
+          <div style={{ fontSize: '11px', color: '#999' }}>vs prior period</div>
+
+          {insurerMode && showMarket && (
+            <div style={{ borderTop: '1px solid #eee', marginTop: '8px', paddingTop: '8px' }}>
+              <div style={{ fontSize: '11px', color: COLORS.grey }}>
+                Market: {trendLabel(marketTrend)}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#ccc', margin: '8px 0' }}>—</div>
+          <div style={{ fontSize: '11px', color: '#999' }}>
+            {(marketSupp && !marketSupp.show)
+              ? marketSupp.message
+              : 'Insufficient data for trend analysis'}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Custom tooltip for line chart ───────────────────────────────────────────────
+
+// Keys used for the CI band — excluded from tooltip display
+const CI_KEYS = new Set(['ciBase', 'bandWidth']);
+
+function LineTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  const visible = payload.filter(p => !CI_KEYS.has(p.dataKey));
+  if (!visible.length) return null;
+  const n = payload[0]?.payload?.n;
+  return (
+    <div style={{
+      backgroundColor: '#fff',
+      border: '1px solid #ddd',
+      borderRadius: '6px',
+      padding: '10px',
+      fontFamily: FONT.family,
+      fontSize: '12px',
+      minWidth: '160px',
+    }}>
+      <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>{label}</div>
+      {visible.map(p => (
+        <div key={p.dataKey} style={{ color: p.stroke, marginBottom: '2px' }}>
+          {p.name}: {typeof p.value === 'number' ? `${p.value.toFixed(1)}%` : '—'}
+        </div>
+      ))}
+      {n !== undefined && (
+        <div style={{ color: '#888', marginTop: '6px', borderTop: '1px solid #eee', paddingTop: '4px' }}>
+          n = {n}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Square dot renderer for insurer line ────────────────────────────────────────
+
+function SquareDot(props) {
+  const { cx, cy } = props;
+  const size = 8;
+  if (cx == null || cy == null) return null;
+  return (
+    <rect
+      x={cx - size / 2}
+      y={cy - size / 2}
+      width={size}
+      height={size}
+      fill={COLORS.magenta}
+    />
+  );
+}
+
+function SquareDotActive(props) {
+  const { cx, cy } = props;
+  const size = 10;
+  if (cx == null || cy == null) return null;
+  return (
+    <rect
+      x={cx - size / 2}
+      y={cy - size / 2}
+      width={size}
+      height={size}
+      fill={COLORS.magenta}
+    />
+  );
+}
+
+// ── Main component ──────────────────────────────────────────────────────────────
+
+export default function ShopOrStay() {
+  const { filteredData, mode, selectedInsurer } = useDashboard();
+  const insurerMode = mode === 'insurer' && !!selectedInsurer;
+
+  // ── Market measures ────────────────────────────────────────────────────────────
+  const marketShopRate    = shoppingRate(filteredData);
+  const marketNonShopRate = nonShoppingRate(filteredData);
+  const marketPCW         = pcwUsageRate(filteredData);
+  const marketTrend       = trendChange(filteredData);
+
+  // ── Insurer measures ───────────────────────────────────────────────────────────
+  const insurerShopRate    = insurerMode ? shoppingRate(filteredData, selectedInsurer)    : null;
+  const insurerNonShopRate = insurerMode ? nonShoppingRate(filteredData, selectedInsurer) : null;
+  const insurerPCW         = insurerMode ? pcwUsageRate(filteredData, selectedInsurer)    : null;
+  const insurerTrend       = insurerMode ? trendChange(filteredData, selectedInsurer)     : null;
+
+  // ── Suppression ────────────────────────────────────────────────────────────────
+  const insurerN = insurerMode
+    ? filteredData.filter(r => r.CurrentCompany === selectedInsurer).length
+    : 0;
+  const insurerSuppression = insurerMode ? checkSuppression(insurerN) : null;
+  const isIndicative = insurerSuppression?.level === 'indicative';
+
+  const marketTrendSupp = marketTrend
+    ? checkTrendSuppression(marketTrend.recentN, marketTrend.previousN)
+    : null;
+  const insurerTrendSupp = insurerTrend
+    ? checkTrendSuppression(insurerTrend.recentN, insurerTrend.previousN)
+    : null;
+
+  // ── Narrative ──────────────────────────────────────────────────────────────────
+  const narrativeText = insurerMode
+    ? generateNarrative(selectedInsurer, insurerShopRate, marketShopRate)
+    : null;
+
+  // ── Chart data ─────────────────────────────────────────────────────────────────
+  const marketMonthly = useMemo(
+    () => shoppingRateByMonth(filteredData),
+    [filteredData]
+  );
+  const insurerMonthly = useMemo(
+    () => (insurerMode ? shoppingRateByMonth(filteredData, selectedInsurer) : []),
+    [filteredData, selectedInsurer, insurerMode]
+  );
+
+  const chartData = useMemo(() => {
+    return marketMonthly.map(m => {
+      // 95% confidence interval: ±1.96 × sqrt(p(1-p)/n)
+      const margin = m.n > 1 ? 1.96 * Math.sqrt(m.rate * (1 - m.rate) / m.n) : 0;
+      const ciLow  = Math.max(0, m.rate - margin) * 100;
+      const ciHigh = Math.min(100, m.rate + margin) * 100;
+      const ins = insurerMonthly.find(i => i.month === m.month);
+      return {
+        monthDisplay: m.monthDisplay,
+        marketRate:   parseFloat((m.rate * 100).toFixed(1)),
+        // Band rendered as stacked areas: ciBase (transparent) + bandWidth (grey fill)
+        ciBase:     parseFloat(ciLow.toFixed(1)),
+        bandWidth:  parseFloat((ciHigh - ciLow).toFixed(1)),
+        n:          m.n,
+        insurerRate: ins != null ? parseFloat((ins.rate * 100).toFixed(1)) : null,
+      };
+    });
+  }, [marketMonthly, insurerMonthly]);
+
+  // ── KPI card props helper ──────────────────────────────────────────────────────
+  function kpiProps(label, marketVal, insurerVal, format, favourableDirection) {
+    const value = insurerMode ? insurerVal : marketVal;
+    return {
+      label,
+      value,
+      format,
+      marketValue:         insurerMode ? marketVal  : undefined,
+      gap:                 insurerMode && marketVal !== null && insurerVal !== null
+                             ? insurerVal - marketVal : undefined,
+      favourableDirection: insurerMode ? favourableDirection : undefined,
+      indicative:          isIndicative,
+    };
+  }
+
+  return (
+    <div style={{ fontFamily: FONT.family }}>
+
+      {/* ── Row 1: KPI cards ──────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
+
+        <KPICard {...kpiProps('Shopping Rate', marketShopRate, insurerShopRate, 'pct', 'neutral')} />
+        <KPICard {...kpiProps('Non-Shopping Rate', marketNonShopRate, insurerNonShopRate, 'pct', 'neutral')} />
+
+        <TrendKPICard
+          marketTrend={marketTrend}
+          marketSupp={marketTrendSupp}
+          insurerMode={insurerMode}
+          insurerTrend={insurerTrend}
+          insurerSupp={insurerTrendSupp}
+          indicative={isIndicative}
+        />
+
+        <KPICard {...kpiProps('PCW Usage (of shoppers)', marketPCW, insurerPCW, 'pct', 'neutral')} />
+
+      </div>
+
+      {/* ── Row 2: Charts (60/40) ─────────────────────────────────────────────── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '3fr 2fr',
+        gap: '16px',
+        marginBottom: '24px',
+      }}>
+
+        {/* Left: shopping rate line chart with confidence band */}
+        <div style={chartCard}>
+          <div style={chartTitle}>Shopping rate over time</div>
+          <ResponsiveContainer width="100%" height={300}>
+            <ComposedChart data={chartData} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis
+                dataKey="monthDisplay"
+                tick={{ fontSize: 11, fontFamily: FONT.family }}
+              />
+              <YAxis
+                tickFormatter={v => `${v}%`}
+                domain={['auto', 'auto']}
+                tick={{ fontSize: 11, fontFamily: FONT.family }}
+              />
+              <Tooltip content={<LineTooltip />} />
+              <Legend
+                wrapperStyle={{ fontSize: '11px', fontFamily: FONT.family, paddingTop: '8px' }}
+              />
+
+              {/* Confidence band: transparent base + grey fill on top (stacked areas) */}
+              <Area
+                type="monotone"
+                dataKey="ciBase"
+                stackId="ci"
+                fill="transparent"
+                stroke="none"
+                legendType="none"
+                activeDot={false}
+                isAnimationActive={false}
+                tooltipType="none"
+              />
+              <Area
+                type="monotone"
+                dataKey="bandWidth"
+                stackId="ci"
+                fill={COLORS.confidenceFill}
+                stroke="none"
+                legendType="none"
+                activeDot={false}
+                isAnimationActive={false}
+                name="95% CI"
+                tooltipType="none"
+              />
+
+              {/* Market line: CI Grey, circle dots */}
+              <Line
+                type="monotone"
+                dataKey="marketRate"
+                name="Market"
+                stroke={COLORS.grey}
+                strokeWidth={2}
+                dot={{ r: 4, fill: COLORS.grey, strokeWidth: 0 }}
+                activeDot={{ r: 6, fill: COLORS.grey }}
+              />
+
+              {/* Insurer overlay: CI Magenta, square dots */}
+              {insurerMode && (
+                <Line
+                  type="monotone"
+                  dataKey="insurerRate"
+                  name={selectedInsurer}
+                  stroke={COLORS.magenta}
+                  strokeWidth={2}
+                  dot={<SquareDot />}
+                  activeDot={<SquareDotActive />}
+                  connectNulls={false}
+                />
+              )}
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Right: two stacked placeholders */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <Placeholder
+            title="Why Customers Shop (Q8)"
+            dataNeeded="Requires response data file"
+          />
+          <Placeholder
+            title="Why Customers Don't Shop (Q19)"
+            dataNeeded="Requires response data file"
+          />
+        </div>
+
+      </div>
+
+      {/* ── Narrative card (insurer mode only, not suppressed) ─────────────────── */}
+      {insurerMode && narrativeText && insurerSuppression?.show !== false && (
+        <NarrativeCard insurer={selectedInsurer} text={narrativeText} />
+      )}
+
+    </div>
+  );
+}
