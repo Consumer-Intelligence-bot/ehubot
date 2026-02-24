@@ -1,18 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDashboard } from '../../context/DashboardContext';
+import { getChannels } from '../../api';
 import { FONT } from '../../utils/brandConstants';
 import RenewalFunnel from './RenewalFunnel';
 
 export default function RenewalJourney() {
-  const { filteredData, selectedInsurer, mode } = useDashboard();
-  const [topN, setTopN] = useState(5);
+  const { filteredData, selectedInsurer, mode, product } = useDashboard();
+  const [channels, setChannels] = useState(null);
 
   const insurer = mode === 'insurer' ? selectedInsurer : null;
+
+  useEffect(() => {
+    if (!insurer || !product) {
+      setChannels(null);
+      return;
+    }
+    getChannels({ product, brand: insurer })
+      .then(setChannels)
+      .catch(() => setChannels(null));
+  }, [insurer, product]);
 
   if (!filteredData?.length) {
     return (
       <div style={{ padding: 60, textAlign: 'center', color: '#999', fontFamily: FONT.family }}>
-        <h2 style={{ fontSize: 24, marginBottom: 12 }}>The Renewal Journey</h2>
+        <h2 style={{ fontSize: 24, marginBottom: 12 }}>Shopping Journey</h2>
         <p>No flow data available. Ensure data is loaded and filters are applied.</p>
       </div>
     );
@@ -20,23 +31,10 @@ export default function RenewalJourney() {
 
   return (
     <div style={{ fontFamily: FONT.family }}>
-      {/* Controls */}
-      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 24 }}>
-        <label style={{ fontSize: 14, color: '#333' }}>
-          Top brands in breakdown:
-          <input
-            type="range"
-            min={3}
-            max={8}
-            value={topN}
-            onChange={(e) => setTopN(Number(e.target.value))}
-            style={{ marginLeft: 8, verticalAlign: 'middle' }}
-          />
-          <span style={{ marginLeft: 8, fontWeight: 'bold' }}>{topN}</span>
-        </label>
-      </div>
+      <h2 style={{ fontSize: 24, marginBottom: 16 }}>
+        Shopping Journey{insurer ? ` - ${insurer}` : ''}
+      </h2>
 
-      {/* Decision Funnel */}
       <div
         style={{
           backgroundColor: '#fff',
@@ -45,7 +43,7 @@ export default function RenewalJourney() {
           overflow: 'auto',
         }}
       >
-        <RenewalFunnel data={filteredData} insurer={insurer} topN={topN} />
+        <RenewalFunnel data={filteredData} insurer={insurer} channels={channels} />
       </div>
     </div>
   );

@@ -135,6 +135,229 @@ export function buildSankeyData(data, insurer, topN = 8) {
 }
 
 /**
+ * Derive channel breakdown from raw data or API.
+ * Looks for QuoteChannel/PurchaseChannel columns, or uses PCW usage as fallback.
+ * @param {Array} rows - filtered rows
+ * @param {string} type - 'quote' (shoppers) | 'purchaseInto' (switchers to insurer) | 'purchaseFrom' (switchers from insurer)
+ * @param {string|null} insurer - selected insurer
+ * @param {Array|null} apiChannels - channel_usage from getChannels API { label, market_pct, insurer_pct }
+ */
+function buildChannelBreakdown(rows, type, insurer, apiChannels) {
+  if (apiChannels?.length) {
+    return apiChannels.map((c) => ({
+      brand: c.label,
+      pct: (insurer != null && c.insurer_pct != null ? c.insurer_pct : c.market_pct) ?? 0,
+      marketPct: c.market_pct ?? 0,
+    }));
+  }
+  // Fallback: derive from "Did you use a PCW for shopping"
+  const col = 'Did you use a PCW for shopping';
+  const base = type === 'quote' ? rows.filter((r) => r.Shoppers === 'Shoppers') : rows;
+  if (!base.length) return [];
+  const pcwYes = base.filter((r) => r[col] === 'Yes' || r[col] === true).length;
+  const pcwNo = base.length - pcwYes;
+  return [
+    { brand: 'PCW', pct: pcwYes / base.length, marketPct: pcwYes / base.length },
+    { brand: 'Direct / Other', pct: pcwNo / base.length, marketPct: pcwNo / base.length },
+  ];
+}
+
+/**
+ * Build Shopping Journey data (Admiral-style layout).
+ * Before Renewal → Shoppers/Non Shoppers → Retained/Switched From → After Renewal.
+ * Includes channel breakdowns for Quote Channel, Purchase into, Purchase from.
+ */
+export function buildShoppingJourneyData(data, insurer, channels = null) {
+  if (!data?.length) return null;
+
+  const total = data.length;
+  const relevant = insurer
+    ? data.filter((r) => r.PreRenewalCompany === insurer || r.CurrentCompany === insurer)
+    : data;
+  if (relevant.length === 0 && insurer) return null;
+
+  const newToMarket = data.filter((r) => r.Switchers === 'New-to-market');
+  const existing = data.filter((r) => r.Switchers !== 'New-to-market');
+  const nonShoppers = existing.filter((r) => r.Shoppers === 'Non-shoppers');
+  const shoppers = existing.filter((r) => r.Shoppers === 'Shoppers');
+  const shopStay = shoppers.filter((r) => r.Switchers === 'Non-switcher');
+  const shopSwitch = shoppers.filter((r) => r.Switchers === 'Switcher');
+
+  const pct = (n, base) => (base > 0 ? n / base : 0);
+
+  if (insurer) {
+    const insurerExisting = existing.filter((r) => r.PreRenewalCompany === insurer);
+    const insurerNewBiz = newToMarket.filter((r) => r.CurrentCompany === insurer);
+    const insurerNonShop = insurerExisting.filter((r) => r.Shoppers === 'Non-shoppers');
+    const insurerShoppers = insurerExisting.filter((r) => r.Shoppers === 'Shoppers');
+    const insurerShopStay = insurerShoppers.filter((r) => r.Switchers === 'Non-switcher');
+    const insurerShopSwitch = insurerShoppers.filter((r) => r.Switchers === 'Switcher');
+    const retained = insurerNonShop.length + insurerShopStay.length;
+    const switchedFrom = insurerShopSwitch.length;
+    const switchedInto = insurerNewBiz.length + data.filter((r) => r.Switchers === 'Switcher' && r.CurrentCompany === insurer && r.PreRenewalCompany !== insurer).length;
+    const afterRenewalCount = relevant.filter((r) => r.CurrentCompany === insurer).length;
+    const insurerTotal = insurerExisting.length + insurerNewBiz.length;
+
+    const preShare = total > 0 ? insurerExisting.length / total : 0;
+    const afterShare = total > 0 ? afterRenewalCount / total : 0;
+    const marketPreShare = 1; // 100% in context
+    const marketAfterShare = preShare;
+
+    const quoteChannels = buildChannelBreakdown(
+      insurer ? relevant : data,
+      'quote',
+      insurer,
+      channels?.channel_usage
+    );
+    const purchaseIntoRows = data.filter((r) => r.CurrentCompany === insurer && (r.Switchers === 'Switcher' || r.Switchers === 'New-to-market'));
+    const purchaseFromRows = data.filter((r) => r.Switchers === 'Switcher' && r.PreRenewalCompany === insurer);
+    const purchaseChannelsInto = buildChannelBreakdown(purchaseIntoRows, 'purchaseInto', insurer, channels?.channel_usage);
+    const purchaseChannelsFrom = buildChannelBreakdown(purchaseFromRows, 'purchaseFrom', insurer, channels?.channel_usage);
+
+    const nonShopPct = insurerExisting.length > 0 ? insurerNonShop.length / insurerExisting.length : 0;
+    const shopPct = insurerExisting.length > 0 ? insurerShoppers.length / insurerExisting.length : 0;
+    const retainedPct = insurerTotal > 0 ? retained / insurerTotal : 0;
+    const switchedFromPct = insurerTotal > 0 ? switchedFrom / insurerTotal : 0;
+    const switchedIntoPct = insurerTotal > 0 ? switchedInto / insurerTotal : 0;
+
+    const marketNonShopPct = existing.length > 0 ? pct(nonShoppers.length, existing.length) : 0;
+    const marketShopPct = existing.length > 0 ? pct(shoppers.length, existing.length) : 0;
+    const marketRetainedPct = total > 0 ? (nonShoppers.length + shopStay.length) / total : 0;
+    const marketSwitchedFromPct = total > 0 ? shopSwitch.length / total : 0;
+
+    const marketAfterCount = total;
+    const marketNonShop = nonShoppers.length;
+    const marketRetainedCount = nonShoppers.length + shopStay.length;
+    const marketSwitchedInto = newToMarket.length + data.filter((r) => r.Switchers === 'Switcher' && r.CurrentCompany !== r.PreRenewalCompany).length;
+    const composition = afterRenewalCount > 0 && marketAfterCount > 0
+      ? {
+          nonShoppers: { label: 'Non Shoppers', pct: insurerNonShop.length / afterRenewalCount, marketPct: marketNonShop / marketAfterCount },
+          retained: { label: 'Retained', pct: retained / afterRenewalCount, marketPct: marketRetainedCount / marketAfterCount },
+          switchedInto: { label: 'Switched Into', pct: switchedInto / afterRenewalCount, marketPct: marketSwitchedInto / marketAfterCount },
+        }
+      : null;
+
+    const flows = [
+      { from: 'before-renewal', to: 'shoppers', count: insurerShoppers.length },
+      { from: 'before-renewal', to: 'non-shoppers', count: insurerNonShop.length },
+      { from: 'shoppers', to: 'retained', count: insurerShopStay.length },
+      { from: 'shoppers', to: 'switched-from', count: insurerShopSwitch.length },
+      { from: 'non-shoppers', to: 'after-renewal', count: insurerNonShop.length },
+      { from: 'retained', to: 'after-renewal', count: insurerShopStay.length },
+      { from: 'switched-from', to: 'after-renewal', count: insurerShopSwitch.length },
+      { from: 'switched-into', to: 'after-renewal', count: switchedInto },
+    ];
+
+    return {
+      insurer,
+      beforeRenewal: {
+        label: `${insurer} Before Renewal`,
+        count: insurerExisting.length,
+        pct: preShare,
+        marketPct: marketPreShare,
+        delta: preShare - marketPreShare,
+      },
+      shoppers: {
+        label: 'Shoppers',
+        count: insurerShoppers.length,
+        pct: shopPct,
+        marketPct: marketShopPct,
+        delta: shopPct - marketShopPct,
+      },
+      nonShoppers: {
+        label: 'Non Shoppers',
+        count: insurerNonShop.length,
+        pct: nonShopPct,
+        marketPct: marketNonShopPct,
+        delta: nonShopPct - marketNonShopPct,
+      },
+      retained: {
+        label: 'Retained',
+        count: retained,
+        pct: retainedPct,
+        marketPct: marketRetainedPct,
+        delta: retainedPct - marketRetainedPct,
+      },
+      switchedFrom: {
+        label: 'Switched From',
+        count: switchedFrom,
+        pct: switchedFromPct,
+        marketPct: marketSwitchedFromPct,
+        delta: switchedFromPct - marketSwitchedFromPct,
+      },
+      switchedInto: {
+        label: 'Switched Into',
+        count: switchedInto,
+      },
+      afterRenewal: {
+        label: `${insurer} After Renewal`,
+        count: afterRenewalCount,
+        pct: afterShare,
+        marketPct: marketAfterShare,
+        delta: afterShare - marketAfterShare,
+        composition,
+      },
+      quoteChannels,
+      purchaseChannelsInto,
+      purchaseChannelsFrom,
+      flows,
+      total,
+      insurerTotal,
+    };
+  }
+
+  // Market view
+  const retainedCount = nonShoppers.length + shopStay.length;
+  const switchedIntoCount = newToMarket.length + shopSwitch.length;
+  const flows = [
+    { from: 'before-renewal', to: 'shoppers', count: shoppers.length },
+    { from: 'before-renewal', to: 'non-shoppers', count: nonShoppers.length },
+    { from: 'shoppers', to: 'retained', count: shopStay.length },
+    { from: 'shoppers', to: 'switched-from', count: shopSwitch.length },
+    { from: 'non-shoppers', to: 'after-renewal', count: nonShoppers.length },
+    { from: 'retained', to: 'after-renewal', count: shopStay.length },
+    { from: 'switched-from', to: 'after-renewal', count: shopSwitch.length },
+    { from: 'switched-into', to: 'after-renewal', count: switchedIntoCount },
+  ];
+
+  const quoteChannels = buildChannelBreakdown(data, 'quote', null, channels?.channel_usage);
+  const purchaseChannelsInto = buildChannelBreakdown(shopSwitch, 'purchaseInto', null, channels?.channel_usage);
+  const purchaseChannelsFrom = buildChannelBreakdown(shopSwitch, 'purchaseFrom', null, channels?.channel_usage);
+
+  const composition = total > 0
+    ? {
+        nonShoppers: { label: 'Non Shoppers', pct: nonShoppers.length / total, marketPct: 0.168 },
+        retained: { label: 'Retained', pct: retainedCount / total, marketPct: 0.42 },
+        switchedInto: { label: 'Switched Into', pct: switchedIntoCount / total, marketPct: 0.412 },
+      }
+    : null;
+
+  return {
+    insurer: null,
+    beforeRenewal: { label: 'Market Before Renewal', count: total, pct: 1, marketPct: 1, delta: 0 },
+    shoppers: { label: 'Shoppers', count: shoppers.length, pct: pct(shoppers.length, existing.length), marketPct: pct(shoppers.length, existing.length), delta: 0 },
+    nonShoppers: { label: 'Non Shoppers', count: nonShoppers.length, pct: pct(nonShoppers.length, existing.length), marketPct: pct(nonShoppers.length, existing.length), delta: 0 },
+    retained: { label: 'Retained', count: retainedCount, pct: pct(retainedCount, total), marketPct: pct(retainedCount, total), delta: 0 },
+    switchedFrom: { label: 'Switched From', count: shopSwitch.length, pct: pct(shopSwitch.length, total), marketPct: pct(shopSwitch.length, total), delta: 0 },
+    switchedInto: { label: 'Switched Into', count: switchedIntoCount },
+    afterRenewal: {
+      label: 'Market After Renewal',
+      count: total,
+      pct: 1,
+      marketPct: 1,
+      delta: 0,
+      composition,
+    },
+    quoteChannels,
+    purchaseChannelsInto,
+    purchaseChannelsFrom,
+    flows,
+    total,
+    insurerTotal: null,
+  };
+}
+
+/**
  * Build decision funnel tree data for Renewal Journey.
  * Returns nodes with id, label, pct (0-1), count, children, breakdown (for Won from / Lost to).
  * @param {Array} data - filtered rows

@@ -9,7 +9,7 @@ import {
   Background,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { buildFunnelData } from '../../utils/measures/renewalJourneyMeasures';
+import { buildShoppingJourneyData } from '../../utils/measures/renewalJourneyMeasures';
 import { checkSuppression } from '../../utils/governance';
 import { COLORS, FONT } from '../../utils/brandConstants';
 import { formatGap } from '../../utils/formatters';
@@ -137,7 +137,7 @@ function FunnelBoxNode({ data }) {
 }
 
 function OutcomeListNode({ data }) {
-  const { label, items, borderColor, backgroundColor } = data;
+  const { label, items, borderColor, backgroundColor, showMarket } = data;
 
   return (
     <div className="nodrag" style={{ minWidth: 140 }}>
@@ -156,7 +156,7 @@ function OutcomeListNode({ data }) {
         <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.darkGrey, marginBottom: 6, letterSpacing: '0.3px' }}>{label}</div>
         {items?.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {items.map(({ brand, pct }) => (
+            {items.map(({ brand, pct, marketPct }) => (
               <div
                 key={brand}
                 style={{
@@ -168,7 +168,10 @@ function OutcomeListNode({ data }) {
                 }}
               >
                 <span>{brand}</span>
-                <span>{(pct * 100).toFixed(1)}%</span>
+                <span>
+                  {(pct * 100).toFixed(1)}
+                  {showMarket && marketPct != null ? ` (${(marketPct * 100).toFixed(1)})` : ''}%
+                </span>
               </div>
             ))}
           </div>
@@ -230,18 +233,73 @@ function SummaryMergeNode({ data }) {
   );
 }
 
+/** After Renewal node with embedded composition list (Non Shoppers, Retained, Switched Into) */
+function AfterRenewalEmbeddedNode({ data }) {
+  const { afterRenewal, composition, semanticColor, insurerMode } = data;
+  const pctStr = afterRenewal.pct != null ? `${(afterRenewal.pct * 100).toFixed(1)}%` : '—';
+  const supp = checkSuppression(afterRenewal.count ?? 0);
+  const showMarket = insurerMode && afterRenewal.marketPct != null && supp.show;
+
+  return (
+    <div className="nodrag" style={{ minWidth: 200 }}>
+      <Handle type="target" position={Position.Left} style={{ left: 0, visibility: 'hidden' }} />
+      <div
+        style={{
+          backgroundColor: semanticColor || '#E0F2F7',
+          borderRadius: 8,
+          padding: 12,
+          border: '1px solid rgba(0,0,0,0.08)',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+          fontFamily: FONT.family,
+        }}
+      >
+        <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.darkGrey, marginBottom: 4, letterSpacing: '0.3px' }}>
+          {afterRenewal.label}
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 'bold', color: '#111' }}>{afterRenewal.count?.toLocaleString() ?? '—'}</div>
+        {showMarket && (
+          <div style={{ fontSize: 11, color: COLORS.grey, marginTop: 2 }}>
+            {pctStr} (Market: {(afterRenewal.marketPct * 100).toFixed(1)}%)
+          </div>
+        )}
+        {composition && (
+          <div style={{ fontSize: 11, color: '#444', marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {Object.values(composition).map(({ label, pct, marketPct }) => (
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>{label}</span>
+                <span>{(pct * 100).toFixed(1)}{marketPct != null ? ` (${(marketPct * 100).toFixed(1)})` : ''}%</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <Handle type="source" position={Position.Right} style={{ right: 0, visibility: 'hidden' }} />
+    </div>
+  );
+}
+
 const nodeTypes = {
   funnelBox: FunnelBoxNode,
   outcomeList: OutcomeListNode,
   summaryMerge: SummaryMergeNode,
+  afterRenewalEmbedded: AfterRenewalEmbeddedNode,
 };
 
-function buildNodesAndEdges(funnel, insurerMode) {
-  if (!funnel) return { nodes: [], edges: [] };
+// Shopping Journey layout positions
+const SJ_ROW_1_Y = 80;   // Before Renewal, Non Shoppers
+const SJ_ROW_2_Y = 220;  // Shoppers, Switched From, Quote Channel
+const SJ_ROW_3_Y = 360;  // Retained, Purchase from
+const SJ_ROW_4_Y = 500;  // After Renewal, Switched Into, Purchase into
+const SJ_LEFT_X = 40;
+const SJ_MID_X = 380;
+const SJ_RIGHT_X = 720;
+const SJ_CHANNEL_W = 200;
 
-  const { shoppers, retained, wonFrom, lostTo, customerBase } = funnel;
-  const flows = funnel.flows || [];
-  const maxFlowCount = flows.length ? Math.max(...flows.map((f) => f.count)) : 1;
+function buildNodesAndEdges(journey, insurerMode) {
+  if (!journey) return { nodes: [], edges: [] };
+
+  const { beforeRenewal, shoppers, nonShoppers, retained, switchedFrom, switchedInto, afterRenewal, quoteChannels, purchaseChannelsInto, purchaseChannelsFrom } = journey;
+  const flows = journey.flows || [];
 
   const getColor = (key, metric) =>
     getSemanticColor(
@@ -252,166 +310,162 @@ function buildNodesAndEdges(funnel, insurerMode) {
       insurerMode
     );
 
-  // Won-from: hide when n < 30 (sum of flows into won-from)
-  const wonFromN = flows.filter((f) => f.to === 'won-from').reduce((s, f) => s + f.count, 0);
-  const showWonFrom = checkSuppression(wonFromN).show;
-
-  // Explicit layout: left column, middle column, right column (2x2 grid)
   const nodes = [
-    // Left: Pre-renewal (centred vertically)
+    // Middle column: main flow
     {
-      id: 'pre-renewal',
+      id: 'before-renewal',
       type: 'funnelBox',
-      position: { x: COL_LEFT_X, y: LEFT_CARD_Y },
-      data: { ...funnel.preRenewalShare, semanticColor: getColor('pre-renewal', funnel.preRenewalShare), insurerMode },
-      draggable: false,
-      style: { width: LEFT_CARD_W },
-    },
-    // Middle: Shopping behaviour
-    {
-      id: 'new-biz',
-      type: 'funnelBox',
-      position: { x: COL_MID_X, y: ROW_1_Y },
-      data: { ...funnel.newBusiness, semanticColor: getColor('new-biz', funnel.newBusiness), insurerMode },
-      draggable: false,
-      style: { width: NODE_W_WIDE },
-    },
-    {
-      id: 'non-shoppers',
-      type: 'funnelBox',
-      position: { x: COL_MID_X, y: ROW_2_Y },
-      data: { ...funnel.nonShoppers, semanticColor: getColor('non-shoppers', funnel.nonShoppers), insurerMode },
+      position: { x: SJ_MID_X, y: SJ_ROW_1_Y },
+      data: { ...beforeRenewal, semanticColor: getColor('pre-renewal', beforeRenewal), insurerMode },
       draggable: false,
       style: { width: NODE_W_WIDE },
     },
     {
       id: 'shoppers',
       type: 'funnelBox',
-      position: { x: COL_MID_X, y: ROW_3_Y },
-      data: { ...shoppers, semanticColor: getColor('shoppers', shoppers), insurerMode, compact: true },
+      position: { x: SJ_MID_X, y: SJ_ROW_2_Y },
+      data: { ...shoppers, semanticColor: getColor('shoppers', shoppers), insurerMode },
       draggable: false,
       style: { width: NODE_W_WIDE },
     },
     {
-      id: 'shop-stay',
-      type: 'funnelBox',
-      position: { x: COL_MID_X, y: ROW_4_Y },
-      data: { ...shoppers.shopStay, semanticColor: getColor('shop-stay', shoppers.shopStay), insurerMode, compact: true },
-      draggable: false,
-      style: { width: NODE_W_NARROW },
-    },
-    {
-      id: 'shop-switch',
-      type: 'funnelBox',
-      position: { x: COL_MID_X + NODE_W_NARROW + 10, y: ROW_4_Y },
-      data: { ...shoppers.shopSwitch, semanticColor: getColor('shop-switch', shoppers.shopSwitch), insurerMode, compact: true },
-      draggable: false,
-      style: { width: NODE_W_NARROW },
-    },
-    // Right column A (left half): Won from (suppress if n < 30), Lost to
-    ...(showWonFrom
-      ? [{
-          id: 'won-from',
-          type: 'outcomeList',
-          position: { x: COL_RIGHT_A_X, y: RIGHT_WON_FROM_Y },
-          data: {
-            label: wonFrom.label,
-            items: wonFrom.breakdown?.slice(0, 3) || [],
-            borderColor: COLORS.green,
-            backgroundColor: '#F8FAFA',
-          },
-          draggable: false,
-          style: { width: OUTCOME_W_A, minHeight: OUTCOME_H_TALL },
-        }]
-      : []),
-    ...(lostTo
-      ? [{
-          id: 'lost-to',
-          type: 'outcomeList',
-          position: { x: COL_RIGHT_A_X, y: RIGHT_LOST_TO_Y },
-          data: {
-            label: lostTo.label,
-            items: lostTo.breakdown?.slice(0, 3) || [],
-            borderColor: COLORS.red,
-            backgroundColor: '#FFF8F8',
-          },
-          draggable: false,
-          style: { width: OUTCOME_W_A, minHeight: OUTCOME_H_TALL },
-        }]
-      : []),
-    // Right column B (right half): Retained, Summary (merged)
-    {
       id: 'retained',
       type: 'funnelBox',
-      position: { x: COL_RIGHT_B_X, y: RIGHT_RETAINED_Y },
+      position: { x: SJ_MID_X, y: SJ_ROW_3_Y },
       data: { ...retained, semanticColor: getColor('retained', retained), insurerMode, isOutcome: true },
       draggable: false,
-      style: { width: OUTCOME_W_B },
+      style: { width: NODE_W_WIDE },
     },
     {
-      id: 'summary',
-      type: 'summaryMerge',
-      position: { x: COL_RIGHT_B_X, y: RIGHT_SUMMARY_Y },
+      id: 'after-renewal',
+      type: 'afterRenewalEmbedded',
+      position: { x: SJ_MID_X, y: SJ_ROW_4_Y },
       data: {
-        afterRenewal: funnel.afterRenewalShare,
-        customerBase,
-        semanticColor: getColor('after-renewal', funnel.afterRenewalShare),
+        afterRenewal,
+        composition: afterRenewal.composition,
+        semanticColor: getColor('after-renewal', afterRenewal),
         insurerMode,
       },
       draggable: false,
+      style: { width: NODE_W_WIDE },
+    },
+    // Right column: Non Shoppers, Switched From, Purchase from
+    {
+      id: 'non-shoppers',
+      type: 'funnelBox',
+      position: { x: SJ_RIGHT_X, y: SJ_ROW_1_Y },
+      data: { ...nonShoppers, semanticColor: getColor('non-shoppers', nonShoppers), insurerMode },
+      draggable: false,
       style: { width: OUTCOME_W_B },
+    },
+    {
+      id: 'switched-from',
+      type: 'funnelBox',
+      position: { x: SJ_RIGHT_X, y: SJ_ROW_2_Y },
+      data: { ...switchedFrom, semanticColor: getColor('shop-switch', switchedFrom), insurerMode, isOutcome: true },
+      draggable: false,
+      style: { width: OUTCOME_W_B },
+    },
+    {
+      id: 'purchase-from',
+      type: 'outcomeList',
+      position: { x: SJ_RIGHT_X, y: SJ_ROW_3_Y },
+      data: {
+        label: 'Purchase channels used to switch from ' + (journey.insurer || 'market'),
+        items: purchaseChannelsFrom?.map((c) => ({ brand: c.brand, pct: c.pct, marketPct: c.marketPct })) || [],
+        borderColor: COLORS.red,
+        backgroundColor: '#FFF8F8',
+        showMarket: insurerMode,
+      },
+      draggable: false,
+      style: { width: SJ_CHANNEL_W, minHeight: OUTCOME_H_TALL },
+    },
+    // Left column: Quote Channel, Purchase into, Switched Into
+    {
+      id: 'quote-channel',
+      type: 'outcomeList',
+      position: { x: SJ_LEFT_X, y: SJ_ROW_2_Y },
+      data: {
+        label: 'Quote Channel Multiple',
+        items: quoteChannels?.map((c) => ({ brand: c.brand, pct: c.pct, marketPct: c.marketPct })) || [],
+        borderColor: COLORS.blue,
+        backgroundColor: '#F0F9FF',
+        showMarket: insurerMode,
+      },
+      draggable: false,
+      style: { width: SJ_CHANNEL_W, minHeight: OUTCOME_H_TALL },
+    },
+    {
+      id: 'purchase-into',
+      type: 'outcomeList',
+      position: { x: SJ_LEFT_X, y: SJ_ROW_3_Y },
+      data: {
+        label: 'Purchase channels used to switch into ' + (journey.insurer || 'market'),
+        items: purchaseChannelsInto?.map((c) => ({ brand: c.brand, pct: c.pct, marketPct: c.marketPct })) || [],
+        borderColor: COLORS.green,
+        backgroundColor: '#F8FAFA',
+        showMarket: insurerMode,
+      },
+      draggable: false,
+      style: { width: SJ_CHANNEL_W, minHeight: OUTCOME_H_TALL },
+    },
+    {
+      id: 'switched-into',
+      type: 'funnelBox',
+      position: { x: SJ_LEFT_X, y: SJ_ROW_4_Y },
+      data: {
+        ...switchedInto,
+        label: switchedInto.label,
+        pct: null,
+        count: switchedInto.count,
+        semanticColor: getColor('new-biz', { count: switchedInto.count }),
+        insurerMode,
+      },
+      draggable: false,
+      style: { width: SJ_CHANNEL_W },
     },
   ];
 
-  // Edges: volume-weighted stroke (base 2px, +0.5 per 200 respondents, cap 6)
   const nodeIds = new Set(nodes.map((n) => n.id));
-  const drawableFlows = flows.filter((f) => {
-    if (f.count <= 0) return false;
-    const toId = (f.to === 'after-renewal' || f.to === 'customer-base') ? 'summary' : f.to;
-    return nodeIds.has(f.from) && nodeIds.has(toId);
-  });
+  const drawableFlows = flows.filter((f) => f.count > 0 && nodeIds.has(f.from) && nodeIds.has(f.to));
 
-  const edges = drawableFlows.map(({ from, to, count }, i) => {
-    const toId = (to === 'after-renewal' || to === 'customer-base') ? 'summary' : to;
-    const strokeWidth = Math.min(6, 2 + (count / 200) * 0.5);
-    return {
-      id: `e-${from}-${toId}-${i}`,
-      source: from,
-      target: toId,
-      type: 'default',
-      animated: false,
-      markerEnd: { type: MarkerType.ArrowClosed },
-      style: {
-        stroke: COLORS.grey,
-        strokeWidth: Math.max(2, strokeWidth),
-      },
-    };
-  });
+  const edges = drawableFlows.map(({ from, to, count }, i) => ({
+    id: `e-${from}-${to}-${i}`,
+    source: from,
+    target: to,
+    type: 'default',
+    animated: false,
+    markerEnd: { type: MarkerType.ArrowClosed },
+    style: {
+      stroke: COLORS.grey,
+      strokeWidth: Math.max(2, Math.min(6, 2 + (count / 200) * 0.5)),
+    },
+  }));
 
   return { nodes, edges };
 }
 
-export default function RenewalFunnel({ data, insurer, topN }) {
-  const funnel = useMemo(
-    () => buildFunnelData(data, insurer, topN),
-    [data, insurer, topN]
+export default function RenewalFunnel({ data, insurer, channels }) {
+  const journey = useMemo(
+    () => buildShoppingJourneyData(data, insurer, channels),
+    [data, insurer, channels]
   );
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(
-    () => buildNodesAndEdges(funnel, !!insurer),
-    [funnel, insurer]
+    () => buildNodesAndEdges(journey, !!insurer),
+    [journey, insurer]
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
   useEffect(() => {
-    const { nodes: n, edges: e } = buildNodesAndEdges(funnel, !!insurer);
+    const { nodes: n, edges: e } = buildNodesAndEdges(journey, !!insurer);
     setNodes(n);
     setEdges(e);
-  }, [funnel, insurer, setNodes, setEdges]);
+  }, [journey, insurer, setNodes, setEdges]);
 
-  if (!funnel) {
+  if (!journey) {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: '#999', fontFamily: FONT.family }}>
         No funnel data available.
@@ -447,7 +501,7 @@ export default function RenewalFunnel({ data, insurer, topN }) {
             textAlign: 'center',
           }}
         >
-          Pre-Renewal
+          Channels
         </div>
         <div />
         <div
@@ -463,7 +517,7 @@ export default function RenewalFunnel({ data, insurer, topN }) {
             textAlign: 'center',
           }}
         >
-          Shopping Behaviour
+          Shopping Journey
         </div>
         <div />
         <div
@@ -517,10 +571,11 @@ export default function RenewalFunnel({ data, insurer, topN }) {
       </div>
 
       <div style={{ fontSize: 12, color: '#666', marginTop: 12 }}>
-        Total: {funnel.total.toLocaleString()} respondents
-        {insurer && funnel.insurerTotal != null && (
-          <> · {insurer}: {funnel.insurerTotal.toLocaleString()}</>
+        Total: {journey.total.toLocaleString()} respondents
+        {insurer && journey.insurerTotal != null && (
+          <> · {insurer}: {journey.insurerTotal.toLocaleString()}</>
         )}
+        <span style={{ marginLeft: 16, color: COLORS.grey, fontSize: 11 }}>Brackets (...) = Market</span>
       </div>
     </div>
   );
