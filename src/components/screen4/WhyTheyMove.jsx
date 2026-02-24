@@ -7,6 +7,7 @@ import {
   proxyReasonsForShopping,
   proxyReasonsForNotShopping,
   proxyReasonsForSwitching,
+  getSegmentCounts,
 } from '../../utils/measures/whyTheyMoveMeasures';
 import { FONT, COLORS } from '../../utils/brandConstants';
 
@@ -88,6 +89,7 @@ export default function WhyTheyMove() {
         {SECTIONS.map((section) => {
           const apiResult = apiData[section.key];
           const proxyReasons = section.proxyFn(filteredData);
+          const segmentCounts = getSegmentCounts(filteredData, insurerMode ? selectedInsurer : null);
 
           let content;
           if (apiResult?.reasons?.length) {
@@ -104,8 +106,8 @@ export default function WhyTheyMove() {
               <ReasonChart
                 title={`${section.title} (proxy)`}
                 reasons={proxyReasons}
-                baseN={{ market: filteredData.length }}
-                insurerMode={false}
+                baseN={segmentCounts[section.key]}
+                insurerMode={!!insurerMode}
               />
             );
           } else {

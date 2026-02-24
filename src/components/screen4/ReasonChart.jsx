@@ -24,8 +24,15 @@ export default function ReasonChart({ title, reasons, baseN, insurerMode }) {
         {title}
       </div>
       {baseN && (
-        <div style={{ fontSize: 11, color: '#666', marginBottom: 10 }}>
-          n={baseN.market?.toLocaleString?.() ?? baseN}
+        <div style={{ fontSize: 11, marginBottom: 10, display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ color: COLORS.grey }}>
+            Market n={typeof baseN.market === 'number' ? baseN.market.toLocaleString() : (typeof baseN === 'number' ? baseN.toLocaleString() : baseN.market ?? '—')}
+          </span>
+          {insurerMode && (baseN.insurer != null || baseN.insurer === 0) && (
+            <span style={{ color: COLORS.green, fontWeight: 'bold' }}>
+              Company n={(baseN.insurer ?? 0).toLocaleString()}
+            </span>
+          )}
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

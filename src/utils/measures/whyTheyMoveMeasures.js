@@ -74,3 +74,20 @@ export function proxyReasonsForSwitching(data) {
   if (switchers.length < 10) return null;
   return priceDirectionSplit(switchers);
 }
+
+/**
+ * Segment counts for baseN display. Returns { market, insurer } for each segment.
+ */
+export function getSegmentCounts(data, insurer) {
+  const shoppers = data.filter((r) => r.Shoppers === 'Shoppers');
+  const switchers = data.filter((r) => r.Switchers === 'Switcher');
+  const nonShoppers = data.filter((r) => r.Shoppers === 'Non-shoppers');
+
+  const byInsurer = (arr) => (insurer ? arr.filter((r) => r.CurrentCompany === insurer).length : null);
+
+  return {
+    shopping: { market: shoppers.length, insurer: byInsurer(shoppers) },
+    switching: { market: switchers.length, insurer: byInsurer(switchers) },
+    'not-shopping': { market: nonShoppers.length, insurer: byInsurer(nonShoppers) },
+  };
+}
