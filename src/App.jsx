@@ -59,14 +59,14 @@ function AppContent() {
               <RenewalLandscape />
             </ScreenLayout>
           } />
-          <Route path="/shop-or-stay" element={
+          <Route path="/renewal-journey" element={<PlaceholderScreen title="The Renewal Journey" />} />
+          <Route path="/who-shops-who-stays" element={
             <ScreenLayout activeStage="shoppers">
               <ShopOrStay />
             </ScreenLayout>
           } />
-          <Route path="/switching-journey" element={<PlaceholderScreen title="The Switching Journey" />} />
-          <Route path="/winners-losers" element={<PlaceholderScreen title="Winners &amp; Losers" />} />
-          <Route path="/deep-dive" element={<PlaceholderScreen title="Deep Dive" />} />
+          <Route path="/why-they-move" element={<PlaceholderScreen title="Why They Move" />} />
+          <Route path="/brand-lens" element={<PlaceholderScreen title="Brand Lens" />} />
           {/* TODO: REMOVE BEFORE DELIVERY — dev-only validation route */}
           <Route path="/validation" element={<ValidationPage />} />
         </Routes>

@@ -1,18 +1,21 @@
 export const COLORS = {
-  magenta: '#981D97',           // Primary accent, insurer data
+  magenta: '#981D97',           // CI Violet - Primary accent, insurer data
   grey: '#54585A',              // Market benchmark
-  green: '#48A23F',             // Positive indicator
-  red: '#F4364C',               // Negative indicator
-  blue: '#5BC2E7',              // Neutral accent
+  green: '#48A23F',             // CI Green - Positive indicator
+  red: '#F4364C',               // CI Red - Negative indicator
+  blue: '#5BC2E7',              // CI Blue - Secondary accent
+  yellow: '#FFCD00',            // CI Yellow - Highlight / warning
+  darkGrey: '#4D5153',          // CI Dark Grey - Text colour
+  lightGrey: '#E9EAEB',         // CI Light Grey - Secondary background
   confidenceFill: 'rgba(224, 224, 224, 0.3)', // Confidence band
   white: '#FFFFFF',
-  lightGrey: '#F5F5F5',         // Background
+  backgroundLight: '#F5F5F5',   // Fallback background (legacy)
 };
 
 export const FONT = {
   family: 'Verdana, Geneva, sans-serif',
-  cardValue: '28px',
-  cardLabel: '10px',
+  cardValue: '32px',            // Spec: Verdana Bold 32pt for KPI value
+  cardLabel: '11px',             // Spec: Verdana Regular 11pt for labels
   body: '14px',
   heading: '18px',
 };

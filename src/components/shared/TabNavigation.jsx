@@ -2,11 +2,11 @@ import { NavLink } from 'react-router-dom';
 import { COLORS, FONT } from '../../utils/brandConstants';
 
 const TABS = [
-  { label: 'Renewal Landscape',    path: '/' },
-  { label: 'Shop or Stay?',        path: '/shop-or-stay' },
-  { label: 'The Switching Journey', path: '/switching-journey' },
-  { label: 'Winners & Losers',     path: '/winners-losers' },
-  { label: 'Deep Dive',            path: '/deep-dive' },
+  { label: 'Market Pulse',         path: '/' },
+  { label: 'The Renewal Journey',  path: '/renewal-journey' },
+  { label: 'Who Shops, Who Stays', path: '/who-shops-who-stays' },
+  { label: 'Why They Move',        path: '/why-they-move' },
+  { label: 'Brand Lens',           path: '/brand-lens' },
 ];
 
 export default function TabNavigation() {

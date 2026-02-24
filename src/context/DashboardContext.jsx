@@ -5,8 +5,14 @@ import { THRESHOLDS } from '../utils/brandConstants';
 
 const DashboardContext = createContext(null);
 
+const DEFAULT_CONFIG = {
+  motorFile: 'motor_main_data_demo.csv',
+  homeFile: 'all home data.csv',
+};
+
 export function DashboardProvider({ children }) {
-  const [rawData, setRawData] = useState([]);
+  const [rawDataMotor, setRawDataMotor] = useState([]);
+  const [rawDataHome, setRawDataHome] = useState([]);
   const [mode, setMode] = useState('market');
   const [selectedInsurer, setSelectedInsurer] = useState(null);
   const [product, setProduct] = useState('motor');
@@ -14,20 +20,30 @@ export function DashboardProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Load data on mount (filename from VITE_DATA_FILE env, fallback to demo)
+  // Load config.json then both data files (from server startup script or defaults)
   useEffect(() => {
-    const dataFile = import.meta.env.VITE_DATA_FILE || 'motor_main_data.csv';
-    loadCSV(dataFile)
-      .then(rows => {
-        const enriched = addDerivedFields(rows);
-        setRawData(enriched);
+    let config = DEFAULT_CONFIG;
+    fetch('/config.json')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => {
+        if (c?.motorFile && c?.homeFile) config = c;
+        return Promise.all([
+          loadCSV(config.motorFile).catch(() => []),
+          loadCSV(config.homeFile).catch(() => []),
+        ]);
+      })
+      .then(([motorRows, homeRows]) => {
+        setRawDataMotor(addDerivedFields(motorRows));
+        setRawDataHome(addDerivedFields(homeRows));
         setLoading(false);
       })
-      .catch(err => {
+      .catch((err) => {
         setError(err.message);
         setLoading(false);
       });
   }, []);
+
+  const rawData = product === 'motor' ? rawDataMotor : rawDataHome;
 
   // Filter data by time window
   const filteredData = useMemo(() => {

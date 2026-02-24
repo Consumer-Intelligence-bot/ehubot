@@ -1,4 +1,37 @@
-# React + Vite
+# Shopping & Switching Dashboard
+
+React + Vite dashboard for insurer shopping and switching analytics.
+
+## Data file selection (production)
+
+When starting the server, you can choose which CSV files to use for Motor and Home data. The last-used names are remembered.
+
+### Deploy and run
+
+1. **Build locally:**
+   ```bash
+   npm run build
+   ```
+
+2. **Copy to server:** Upload `dist/`, `scripts/`, `package.json`, and create a `data/` folder with your CSV files.
+
+3. **On the server, start with file selection:**
+   ```bash
+   npm run start
+   ```
+   You will be prompted:
+   - **Motor data file** [last used or motor_main_data_demo.csv]
+   - **Home data file** [last used or all home data.csv]
+
+   Press Enter to keep the default, or type a new filename. The script copies the chosen files into `dist/data/` and starts the web server.
+
+4. **Environment variables (optional):**
+   - `DATA_DIR` – directory containing your CSV files (default: `./data`)
+   - `DIST_DIR` – built app directory (default: `./dist`)
+
+---
+
+## React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
