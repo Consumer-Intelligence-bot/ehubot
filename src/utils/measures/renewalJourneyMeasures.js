@@ -191,6 +191,22 @@ export function buildFunnelData(data, insurer, topN = 3) {
     const retainedPct = insurerTotal > 0 ? retained / insurerTotal : 0;
     const newBizPct = insurerTotal > 0 ? insurerNewBiz.length / insurerTotal : 0;
 
+    // Market equivalents for comparison (insurer mode)
+    const marketNewBizPct = pct(newToMarket.length, total);
+    const marketNonShopPct = existing.length > 0 ? pct(nonShoppers.length, existing.length) : 0;
+    const marketShopPct = existing.length > 0 ? pct(shoppers.length, existing.length) : 0;
+    const marketShopStayPct = shoppers.length > 0 ? pct(shopStay.length, shoppers.length) : 0;
+    const marketShopSwitchPct = shoppers.length > 0 ? pct(shopSwitch.length, shoppers.length) : 0;
+    const marketRetainedPct = total > 0 ? (nonShoppers.length + shopStay.length) / total : 0;
+    const allBrands = new Set([
+      ...data.map((r) => r.PreRenewalCompany),
+      ...data.map((r) => r.CurrentCompany),
+    ].filter(Boolean));
+    const insurerCount = allBrands.size;
+    const marketPreShare = insurerCount > 0 ? 1 / insurerCount : 0;
+    // After renewal: compare to pre-renewal share (gaining/losing share)
+    const marketAfterShare = preShare;
+
     const lostTo = topBrandsByCount(
       data.filter((r) => r.Switchers === 'Switcher' && r.PreRenewalCompany === insurer),
       'CurrentCompany'
@@ -209,41 +225,89 @@ export function buildFunnelData(data, insurer, topN = 3) {
       .sort((a, b) => b.pct - a.pct)
       .slice(0, topN);
 
+    // Flows for arrow rendering: { from, to, count }
+    const flows = [
+      { from: 'new-to-market', to: 'new-biz', count: insurerNewBiz.length },
+      { from: 'pre-renewal', to: 'non-shoppers', count: insurerNonShop.length },
+      { from: 'pre-renewal', to: 'shoppers', count: insurerShoppers.length },
+      { from: 'shoppers', to: 'shop-stay', count: insurerShopStay.length },
+      { from: 'shoppers', to: 'shop-switch', count: insurerShopSwitch.length },
+      { from: 'non-shoppers', to: 'retained', count: insurerNonShop.length },
+      { from: 'shop-stay', to: 'retained', count: insurerShopStay.length },
+      { from: 'new-biz', to: 'won-from', count: insurerNewBiz.length },
+      { from: 'shop-switch', to: 'lost-to', count: insurerShopSwitch.length },
+      { from: 'switchers-in', to: 'won-from', count: switchersToUs.length },
+    ];
+
+    const nonShopPctInsurer = insurerExisting.length > 0 ? insurerNonShop.length / insurerExisting.length : 0;
+    const shopPctInsurer = insurerExisting.length > 0 ? insurerShoppers.length / insurerExisting.length : 0;
+    const shopStayPctInsurer = insurerShoppers.length > 0 ? insurerShopStay.length / insurerShoppers.length : 0;
+    const shopSwitchPctInsurer = insurerShoppers.length > 0 ? insurerShopSwitch.length / insurerShoppers.length : 0;
+
     return {
-      preRenewalShare: { label: 'Pre-renewal market share', pct: preShare, count: insurerExisting.length },
+      preRenewalShare: {
+        label: 'Pre-renewal market share',
+        pct: preShare,
+        count: insurerExisting.length,
+        marketPct: marketPreShare,
+        delta: preShare - marketPreShare,
+      },
       newBusiness: {
         label: 'New business acquisition',
         pct: insurerTotal > 0 ? insurerNewBiz.length / insurerTotal : 0,
         count: insurerNewBiz.length,
+        marketPct: marketNewBizPct,
+        delta: newBizPct - marketNewBizPct,
       },
       nonShoppers: {
         label: 'Non-shoppers',
-        pct: insurerExisting.length > 0 ? insurerNonShop.length / insurerExisting.length : 0,
+        pct: nonShopPctInsurer,
         count: insurerNonShop.length,
+        marketPct: marketNonShopPct,
+        delta: nonShopPctInsurer - marketNonShopPct,
       },
       shoppers: {
         label: 'Shoppers',
-        pct: insurerExisting.length > 0 ? insurerShoppers.length / insurerExisting.length : 0,
+        pct: shopPctInsurer,
         count: insurerShoppers.length,
+        marketPct: marketShopPct,
+        delta: shopPctInsurer - marketShopPct,
         shopStay: {
           label: 'Shopped then stayed',
-          pct: insurerShoppers.length > 0 ? insurerShopStay.length / insurerShoppers.length : 0,
+          pct: shopStayPctInsurer,
           count: insurerShopStay.length,
+          marketPct: marketShopStayPct,
+          delta: shopStayPctInsurer - marketShopStayPct,
         },
         shopSwitch: {
           label: 'Shopped then switched',
-          pct: insurerShoppers.length > 0 ? insurerShopSwitch.length / insurerShoppers.length : 0,
+          pct: shopSwitchPctInsurer,
           count: insurerShopSwitch.length,
+          marketPct: marketShopSwitchPct,
+          delta: shopSwitchPctInsurer - marketShopSwitchPct,
         },
       },
-      retained: { label: 'Retained', pct: retainedPct, count: retained },
-      wonFrom: { label: 'Won from (top 3)', breakdown: wonFrom, count: wonFrom.reduce((s, b) => s + 1, 0) },
+      retained: {
+        label: 'Retained',
+        pct: retainedPct,
+        count: retained,
+        marketPct: marketRetainedPct,
+        delta: retainedPct - marketRetainedPct,
+      },
+      wonFrom: { label: 'Won from (top 3)', breakdown: wonFrom, count: wonFrom.length },
       lostTo: { label: 'Lost to (top 3)', breakdown: lostTo, count: lostTo.length },
-      afterRenewalShare: { label: 'After renewal market share', pct: afterShare, count: relevant.filter((r) => r.CurrentCompany === insurer).length },
+      afterRenewalShare: {
+        label: 'After renewal market share',
+        pct: afterShare,
+        count: relevant.filter((r) => r.CurrentCompany === insurer).length,
+        marketPct: marketAfterShare,
+        delta: afterShare - marketAfterShare,
+      },
       customerBase: {
         retained: retainedPct,
         newBusiness: newBizPct,
       },
+      flows,
       total,
       insurerTotal,
     };
@@ -260,6 +324,19 @@ export function buildFunnelData(data, insurer, topN = 3) {
   const retainedPct = total > 0 ? retainedCount / total : 0;
 
   const switchedTo = topBrandsByCount(shopSwitch, 'CurrentCompany');
+
+  // Flows for market view
+  const flows = [
+    { from: 'new-to-market', to: 'new-biz', count: newToMarket.length },
+    { from: 'pre-renewal', to: 'non-shoppers', count: nonShoppers.length },
+    { from: 'pre-renewal', to: 'shoppers', count: shoppers.length },
+    { from: 'shoppers', to: 'shop-stay', count: shopStay.length },
+    { from: 'shoppers', to: 'shop-switch', count: shopSwitch.length },
+    { from: 'non-shoppers', to: 'retained', count: nonShoppers.length },
+    { from: 'shop-stay', to: 'retained', count: shopStay.length },
+    { from: 'new-biz', to: 'won-from', count: newToMarket.length },
+    { from: 'shop-switch', to: 'won-from', count: shopSwitch.length },
+  ];
 
   return {
     preRenewalShare: { label: 'Pre-renewal market share', pct: 1, count: total },
@@ -280,6 +357,7 @@ export function buildFunnelData(data, insurer, topN = 3) {
       retained: retainedPct,
       newBusiness: newBizPct,
     },
+    flows,
     total,
     insurerTotal: null,
   };
