@@ -133,3 +133,154 @@ export function buildSankeyData(data, insurer, topN = 8) {
     links: Array.from(linkMap.values()).map(({ source, target, value }) => ({ source, target, value })),
   };
 }
+
+/**
+ * Build decision funnel tree data for Renewal Journey.
+ * Returns nodes with id, label, pct (0-1), count, children, breakdown (for Won from / Lost to).
+ * @param {Array} data - filtered rows
+ * @param {string|null} insurer - selected insurer (null = market view)
+ * @param {number} topN - top N brands for Won from / Lost to
+ */
+export function buildFunnelData(data, insurer, topN = 3) {
+  if (!data?.length) return null;
+
+  const total = data.length;
+
+  // Market: all data. Insurer: rows where insurer is involved (pre or post)
+  const relevant = insurer
+    ? data.filter((r) => r.PreRenewalCompany === insurer || r.CurrentCompany === insurer)
+    : data;
+
+  if (relevant.length === 0 && insurer) return null;
+
+  const newToMarket = data.filter((r) => r.Switchers === 'New-to-market');
+  const existing = data.filter((r) => r.Switchers !== 'New-to-market');
+  const nonShoppers = existing.filter((r) => r.Shoppers === 'Non-shoppers');
+  const shoppers = existing.filter((r) => r.Shoppers === 'Shoppers');
+  const shopStay = shoppers.filter((r) => r.Switchers === 'Non-switcher');
+  const shopSwitch = shoppers.filter((r) => r.Switchers === 'Switcher');
+
+  const pct = (n, base) => (base > 0 ? n / base : 0);
+
+  // Insurer-specific segments
+  const insurerExisting = insurer ? existing.filter((r) => r.PreRenewalCompany === insurer) : [];
+  const insurerNewBiz = insurer ? newToMarket.filter((r) => r.CurrentCompany === insurer) : [];
+  const insurerNonShop = insurer ? insurerExisting.filter((r) => r.Shoppers === 'Non-shoppers') : [];
+  const insurerShoppers = insurer ? insurerExisting.filter((r) => r.Shoppers === 'Shoppers') : [];
+  const insurerShopStay = insurer ? insurerShoppers.filter((r) => r.Switchers === 'Non-switcher') : [];
+  const insurerShopSwitch = insurer ? insurerShoppers.filter((r) => r.Switchers === 'Switcher') : [];
+
+  const topBrandsByCount = (arr, brandField) => {
+    const counts = {};
+    arr.forEach((r) => {
+      const b = r[brandField];
+      if (b) counts[b] = (counts[b] || 0) + 1;
+    });
+    const base = arr.length || 1;
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, topN)
+      .map(([brand, c]) => ({ brand, pct: c / base }));
+  };
+
+  if (insurer) {
+    const insurerTotal = insurerExisting.length + insurerNewBiz.length;
+    const preShare = total > 0 ? insurerExisting.length / total : 0;
+    const afterShare = total > 0 ? relevant.filter((r) => r.CurrentCompany === insurer).length / total : 0;
+    const retained = insurerNonShop.length + insurerShopStay.length;
+    const retainedPct = insurerTotal > 0 ? retained / insurerTotal : 0;
+    const newBizPct = insurerTotal > 0 ? insurerNewBiz.length / insurerTotal : 0;
+
+    const lostTo = topBrandsByCount(
+      data.filter((r) => r.Switchers === 'Switcher' && r.PreRenewalCompany === insurer),
+      'CurrentCompany'
+    );
+    const switchersToUs = data.filter((r) => r.Switchers === 'Switcher' && r.CurrentCompany === insurer);
+    const newBizToUs = newToMarket.filter((r) => r.CurrentCompany === insurer);
+    const totalWon = switchersToUs.length + newBizToUs.length;
+    const fromCounts = {};
+    switchersToUs.forEach((r) => {
+      const b = r.PreRenewalCompany;
+      if (b) fromCounts[b] = (fromCounts[b] || 0) + 1;
+    });
+    if (newBizToUs.length > 0) fromCounts['New to market'] = newBizToUs.length;
+    const wonFrom = Object.entries(fromCounts)
+      .map(([brand, c]) => ({ brand, pct: totalWon > 0 ? c / totalWon : 0 }))
+      .sort((a, b) => b.pct - a.pct)
+      .slice(0, topN);
+
+    return {
+      preRenewalShare: { label: 'Pre-renewal market share', pct: preShare, count: insurerExisting.length },
+      newBusiness: {
+        label: 'New business acquisition',
+        pct: insurerTotal > 0 ? insurerNewBiz.length / insurerTotal : 0,
+        count: insurerNewBiz.length,
+      },
+      nonShoppers: {
+        label: 'Non-shoppers',
+        pct: insurerExisting.length > 0 ? insurerNonShop.length / insurerExisting.length : 0,
+        count: insurerNonShop.length,
+      },
+      shoppers: {
+        label: 'Shoppers',
+        pct: insurerExisting.length > 0 ? insurerShoppers.length / insurerExisting.length : 0,
+        count: insurerShoppers.length,
+        shopStay: {
+          label: 'Shopped then stayed',
+          pct: insurerShoppers.length > 0 ? insurerShopStay.length / insurerShoppers.length : 0,
+          count: insurerShopStay.length,
+        },
+        shopSwitch: {
+          label: 'Shopped then switched',
+          pct: insurerShoppers.length > 0 ? insurerShopSwitch.length / insurerShoppers.length : 0,
+          count: insurerShopSwitch.length,
+        },
+      },
+      retained: { label: 'Retained', pct: retainedPct, count: retained },
+      wonFrom: { label: 'Won from (top 3)', breakdown: wonFrom, count: wonFrom.reduce((s, b) => s + 1, 0) },
+      lostTo: { label: 'Lost to (top 3)', breakdown: lostTo, count: lostTo.length },
+      afterRenewalShare: { label: 'After renewal market share', pct: afterShare, count: relevant.filter((r) => r.CurrentCompany === insurer).length },
+      customerBase: {
+        retained: retainedPct,
+        newBusiness: newBizPct,
+      },
+      total,
+      insurerTotal,
+    };
+  }
+
+  // Market view
+  const newBizPct = pct(newToMarket.length, total);
+  const existingPct = pct(existing.length, total);
+  const nonShopPct = existing.length > 0 ? pct(nonShoppers.length, existing.length) : 0;
+  const shopPct = existing.length > 0 ? pct(shoppers.length, existing.length) : 0;
+  const shopStayPct = shoppers.length > 0 ? pct(shopStay.length, shoppers.length) : 0;
+  const shopSwitchPct = shoppers.length > 0 ? pct(shopSwitch.length, shoppers.length) : 0;
+  const retainedCount = nonShoppers.length + shopStay.length;
+  const retainedPct = total > 0 ? retainedCount / total : 0;
+
+  const switchedTo = topBrandsByCount(shopSwitch, 'CurrentCompany');
+
+  return {
+    preRenewalShare: { label: 'Pre-renewal market share', pct: 1, count: total },
+    newBusiness: { label: 'New business acquisition', pct: newBizPct, count: newToMarket.length },
+    nonShoppers: { label: 'Non-shoppers', pct: nonShopPct, count: nonShoppers.length },
+    shoppers: {
+      label: 'Shoppers',
+      pct: shopPct,
+      count: shoppers.length,
+      shopStay: { label: 'Shopped then stayed', pct: shopStayPct, count: shopStay.length },
+      shopSwitch: { label: 'Shopped then switched', pct: shopSwitchPct, count: shopSwitch.length },
+    },
+    retained: { label: 'Retained', pct: retainedPct, count: retainedCount },
+    wonFrom: { label: 'Switched to (top 3)', breakdown: switchedTo, count: switchedTo.length },
+    lostTo: null,
+    afterRenewalShare: { label: 'After renewal market share', pct: 1, count: total },
+    customerBase: {
+      retained: retainedPct,
+      newBusiness: newBizPct,
+    },
+    total,
+    insurerTotal: null,
+  };
+}
