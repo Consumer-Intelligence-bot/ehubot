@@ -6,6 +6,7 @@ import {
   useNodesState,
   useEdgesState,
   MarkerType,
+  Background,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { buildFunnelData } from '../../utils/measures/renewalJourneyMeasures';
@@ -56,6 +57,7 @@ function FunnelBoxNode({ data }) {
     delta,
     insurerMode,
     compact,
+    isOutcome,
   } = data;
 
   const pctStr = pct != null ? `${(pct * 100).toFixed(1)}%` : '—';
@@ -69,14 +71,15 @@ function FunnelBoxNode({ data }) {
       <div
         style={{
           backgroundColor: semanticColor,
-          borderRadius: 8,
+          borderRadius: isOutcome ? 8 : compact ? 6 : 8,
           padding: compact ? 8 : 12,
           fontFamily: FONT.family,
           border: '1px solid rgba(0,0,0,0.08)',
+          boxShadow: isOutcome ? '0 2px 6px rgba(0,0,0,0.06)' : '0 1px 3px rgba(0,0,0,0.08)',
         }}
       >
-        <div style={{ fontSize: 11, fontWeight: 'bold', color: '#333', marginBottom: 4 }}>{label}</div>
-        <div style={{ fontSize: 14, fontWeight: 'bold', color: '#111' }}>{pctStr}</div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.darkGrey, marginBottom: 4, letterSpacing: '0.3px' }}>{label}</div>
+        <div style={{ fontSize: isOutcome ? 16 : 14, fontWeight: 'bold', color: '#111' }}>{pctStr}</div>
         {count != null && (
           <div style={{ fontSize: 10, color: '#666', marginTop: 2 }}>n={count.toLocaleString()}</div>
         )}
@@ -89,7 +92,7 @@ function FunnelBoxNode({ data }) {
                 fontWeight: 'bold',
               }}
             >
-              {TREND_ARROW[trend]} {formatGap(delta, 'pct')}
+              {TREND_ARROW[trend]} {delta === 0 ? '—' : formatGap(delta, 'pct')}
             </span>
           </div>
         )}
@@ -100,21 +103,23 @@ function FunnelBoxNode({ data }) {
 }
 
 function OutcomeListNode({ data }) {
-  const { label, items, borderColor } = data;
+  const { label, items, borderColor, backgroundColor } = data;
 
   return (
     <div className="nodrag" style={{ minWidth: 140 }}>
       <Handle type="target" position={Position.Left} style={{ left: 0, visibility: 'hidden' }} />
       <div
         style={{
-          backgroundColor: '#FAFAFA',
+          backgroundColor: backgroundColor || '#FAFAFA',
           borderRadius: 8,
           padding: 10,
-          borderLeft: `4px solid ${borderColor}`,
+          border: '1px solid rgba(0,0,0,0.06)',
+          borderLeft: `6px solid ${borderColor}`,
+          boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
           fontFamily: FONT.family,
         }}
       >
-        <div style={{ fontSize: 11, fontWeight: 'bold', color: '#333', marginBottom: 6 }}>{label}</div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.darkGrey, marginBottom: 6, letterSpacing: '0.3px' }}>{label}</div>
         {items?.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {items.map(({ brand, pct }) => (
@@ -154,10 +159,11 @@ function CustomerBaseNode({ data }) {
           borderRadius: 8,
           padding: 10,
           border: '1px solid rgba(0,0,0,0.08)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
           fontFamily: FONT.family,
         }}
       >
-        <div style={{ fontSize: 11, fontWeight: 'bold', color: '#333', marginBottom: 4 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.darkGrey, marginBottom: 4, letterSpacing: '0.3px' }}>
           Customer base
         </div>
         <div style={{ fontSize: 11, color: '#444' }}>
@@ -206,10 +212,10 @@ function buildNodesAndEdges(funnel, insurerMode) {
     { id: 'shop-switch', type: 'funnelBox', data: { ...shoppers.shopSwitch, semanticColor: getColor('shop-switch', shoppers.shopSwitch), insurerMode, compact: true } },
   ];
   const col2Defs = [
-    { id: 'won-from', type: 'outcomeList', data: { label: wonFrom.label, items: wonFrom.breakdown, borderColor: COLORS.green } },
-    { id: 'retained', type: 'funnelBox', data: { ...retained, semanticColor: getColor('retained', retained), insurerMode } },
-    ...(lostTo ? [{ id: 'lost-to', type: 'outcomeList', data: { label: lostTo.label, items: lostTo.breakdown, borderColor: COLORS.red } }] : []),
-    { id: 'after-renewal', type: 'funnelBox', data: { ...funnel.afterRenewalShare, semanticColor: getColor('after-renewal', funnel.afterRenewalShare), insurerMode } },
+    { id: 'won-from', type: 'outcomeList', data: { label: wonFrom.label, items: wonFrom.breakdown, borderColor: COLORS.green, backgroundColor: '#F8FAFA' } },
+    { id: 'retained', type: 'funnelBox', data: { ...retained, semanticColor: getColor('retained', retained), insurerMode, isOutcome: true } },
+    ...(lostTo ? [{ id: 'lost-to', type: 'outcomeList', data: { label: lostTo.label, items: lostTo.breakdown, borderColor: COLORS.red, backgroundColor: '#FFF8F8' } }] : []),
+    { id: 'after-renewal', type: 'funnelBox', data: { ...funnel.afterRenewalShare, semanticColor: getColor('after-renewal', funnel.afterRenewalShare), insurerMode, isOutcome: true } },
     { id: 'customer-base', type: 'customerBase', data: customerBase },
   ];
 
@@ -247,12 +253,12 @@ function buildNodesAndEdges(funnel, insurerMode) {
     id: `e-${from}-${to}-${i}`,
     source: from,
     target: to,
-    type: 'smoothstep',
+    type: 'default',
     animated: false,
     markerEnd: { type: MarkerType.ArrowClosed },
     style: {
-      stroke: COLORS.grey,
-      strokeWidth: Math.max(2, Math.min(10, 2 + (count / maxFlowCount) * 8)),
+      stroke: '#9CA3AF',
+      strokeWidth: Math.max(1.5, Math.min(6, 1.5 + (count / maxFlowCount) * 4.5)),
     },
   }));
 
@@ -287,16 +293,18 @@ export default function RenewalFunnel({ data, insurer, topN }) {
     );
   }
 
+  const diagramWidth = COL_WIDTH * 3 + COL_GAP * 2;
+
   return (
-    <div style={{ fontFamily: FONT.family }}>
-      {/* Stage headers */}
+    <div style={{ fontFamily: FONT.family, maxWidth: diagramWidth + 40 }}>
+      {/* Stage headers - same width as diagram for alignment */}
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: `${COL_WIDTH}px ${COL_GAP}px ${COL_WIDTH}px ${COL_GAP}px ${COL_WIDTH}px`,
           gap: 0,
           marginBottom: 8,
-          paddingLeft: 20,
+          width: diagramWidth,
         }}
       >
         <div
@@ -348,7 +356,16 @@ export default function RenewalFunnel({ data, insurer, topN }) {
         </div>
       </div>
 
-      <div style={{ height: 520, border: '1px solid #eee', borderRadius: 8, overflow: 'hidden' }}>
+      <div
+        style={{
+          width: diagramWidth,
+          height: 520,
+          border: '1px solid #E5E7EB',
+          borderRadius: 8,
+          overflow: 'hidden',
+          backgroundColor: '#FAFBFC',
+        }}
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -356,7 +373,7 @@ export default function RenewalFunnel({ data, insurer, topN }) {
           onEdgesChange={onEdgesChange}
           nodeTypes={nodeTypes}
           fitView
-          fitViewOptions={{ padding: 0.2 }}
+          fitViewOptions={{ padding: 0.15 }}
           minZoom={0.5}
           maxZoom={1.2}
           nodesDraggable={false}
@@ -367,10 +384,12 @@ export default function RenewalFunnel({ data, insurer, topN }) {
           zoomOnPinch={true}
           preventScrolling={true}
           proOptions={{ hideAttribution: true }}
-        />
+        >
+          <Background variant="dots" gap={16} size={1} color="#E5E7EB" style={{ opacity: 0.5 }} />
+        </ReactFlow>
       </div>
 
-      <div style={{ fontSize: 12, color: '#666', marginTop: 12, paddingLeft: 20 }}>
+      <div style={{ fontSize: 12, color: '#666', marginTop: 12 }}>
         Total: {funnel.total.toLocaleString()} respondents
         {insurer && funnel.insurerTotal != null && (
           <> · {insurer}: {funnel.insurerTotal.toLocaleString()}</>
