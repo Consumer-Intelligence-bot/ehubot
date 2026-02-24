@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   ComposedChart, Area, Line,
   XAxis, YAxis,
@@ -8,6 +8,9 @@ import {
 import { useDashboard } from '../../context/DashboardContext';
 import KPICard from '../shared/KPICard';
 import Placeholder from '../shared/Placeholder';
+import ReasonChart from '../screen4/ReasonChart';
+import { getReasons } from '../../api';
+import { proxyReasonsForShopping, proxyReasonsForNotShopping } from '../../utils/measures/whyTheyMoveMeasures';
 import { COLORS, FONT } from '../../utils/brandConstants';
 import { checkSuppression, checkTrendSuppression } from '../../utils/governance';
 import {
@@ -195,8 +198,31 @@ function SquareDotActive(props) {
 // ── Main component ──────────────────────────────────────────────────────────────
 
 export default function ShopOrStay() {
-  const { filteredData, mode, selectedInsurer } = useDashboard();
+  const { filteredData, mode, selectedInsurer, product } = useDashboard();
   const insurerMode = mode === 'insurer' && !!selectedInsurer;
+
+  const [reasonsQ8, setReasonsQ8] = useState(null);
+  const [reasonsQ19, setReasonsQ19] = useState(null);
+  const [reasonsApiError, setReasonsApiError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setReasonsApiError(false);
+    const load = async () => {
+      try {
+        const [r8, r19] = await Promise.all([
+          getReasons({ product: product || 'motor', brand: insurerMode ? selectedInsurer : null, questionGroup: 'reasons-for-shopping' }),
+          getReasons({ product: product || 'motor', brand: insurerMode ? selectedInsurer : null, questionGroup: 'reasons-for-not-shopping' }),
+        ]);
+        if (!cancelled && r8?.reasons?.length) setReasonsQ8({ reasons: r8.reasons, base_n: r8.base_n });
+        if (!cancelled && r19?.reasons?.length) setReasonsQ19({ reasons: r19.reasons, base_n: r19.base_n });
+      } catch {
+        if (!cancelled) setReasonsApiError(true);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [insurerMode, selectedInsurer, product]);
 
   // ── Market measures ────────────────────────────────────────────────────────────
   const marketShopRate    = shoppingRate(filteredData);
@@ -376,16 +402,22 @@ export default function ShopOrStay() {
           </ResponsiveContainer>
         </div>
 
-        {/* Right: two stacked placeholders */}
+        {/* Right: Why they shop / don't shop */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <Placeholder
-            title="Why Customers Shop (Q8)"
-            dataNeeded="Requires response data file"
-          />
-          <Placeholder
-            title="Why Customers Don't Shop (Q19)"
-            dataNeeded="Requires response data file"
-          />
+          {reasonsQ8?.reasons?.length ? (
+            <ReasonChart title="Why Customers Shop (Q8)" reasons={reasonsQ8.reasons} baseN={reasonsQ8.base_n} insurerMode={!!insurerMode} />
+          ) : reasonsApiError && proxyReasonsForShopping(filteredData)?.length ? (
+            <ReasonChart title="Why Customers Shop (Q8) (proxy)" reasons={proxyReasonsForShopping(filteredData)} baseN={{ market: filteredData.length }} insurerMode={false} />
+          ) : (
+            <Placeholder title="Why Customers Shop (Q8)" dataNeeded="Requires response data file" />
+          )}
+          {reasonsQ19?.reasons?.length ? (
+            <ReasonChart title="Why Customers Don't Shop (Q19)" reasons={reasonsQ19.reasons} baseN={reasonsQ19.base_n} insurerMode={!!insurerMode} />
+          ) : reasonsApiError && proxyReasonsForNotShopping(filteredData)?.length ? (
+            <ReasonChart title="Why Customers Don't Shop (Q19) (proxy)" reasons={proxyReasonsForNotShopping(filteredData)} baseN={{ market: filteredData.length }} insurerMode={false} />
+          ) : (
+            <Placeholder title="Why Customers Don't Shop (Q19)" dataNeeded="Requires response data file" />
+          )}
         </div>
 
       </div>
