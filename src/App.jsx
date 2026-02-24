@@ -4,6 +4,8 @@ import { DashboardProvider, useDashboard } from './context/DashboardContext';
 import Header from './components/shared/Header';
 import TabNavigation from './components/shared/TabNavigation';
 import PlaceholderScreen from './components/shared/PlaceholderScreen';
+import RenewalJourney from './components/screen2/RenewalJourney';
+import WhyTheyMove from './components/screen4/WhyTheyMove';
 import ScreenLayout from './components/shared/ScreenLayout';
 import MarketPulse from './components/screen1/MarketPulse';
 import ShopOrStay from './components/screen2/ShopOrStay';
@@ -59,13 +61,21 @@ function AppContent() {
               <MarketPulse />
             </ScreenLayout>
           } />
-          <Route path="/renewal-journey" element={<PlaceholderScreen title="The Renewal Journey" />} />
+          <Route path="/renewal-journey" element={
+            <ScreenLayout activeStage="renewals">
+              <RenewalJourney />
+            </ScreenLayout>
+          } />
           <Route path="/who-shops-who-stays" element={
             <ScreenLayout activeStage="shoppers">
               <ShopOrStay />
             </ScreenLayout>
           } />
-          <Route path="/why-they-move" element={<PlaceholderScreen title="Why They Move" />} />
+          <Route path="/why-they-move" element={
+            <ScreenLayout activeStage="switchers">
+              <WhyTheyMove />
+            </ScreenLayout>
+          } />
           <Route path="/brand-lens" element={<PlaceholderScreen title="Brand Lens" />} />
           {/* TODO: REMOVE BEFORE DELIVERY — dev-only validation route */}
           <Route path="/validation" element={<ValidationPage />} />

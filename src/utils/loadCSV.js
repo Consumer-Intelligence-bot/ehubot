@@ -6,7 +6,8 @@ import { normaliseColumns } from './normaliseColumns';
  * Returns normalised rows with typed values.
  */
 export async function loadCSV(filename) {
-  const response = await fetch(`/data/${filename}`);
+  const base = import.meta.env.BASE_URL || '/';
+  const response = await fetch(`${base}data/${filename}`);
   const text = await response.text();
 
   return new Promise((resolve, reject) => {

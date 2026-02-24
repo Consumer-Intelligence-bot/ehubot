@@ -23,7 +23,7 @@ export function DashboardProvider({ children }) {
   // Load config.json then both data files (from server startup script or defaults)
   useEffect(() => {
     let config = DEFAULT_CONFIG;
-    fetch('/config.json')
+    fetch(`${import.meta.env.BASE_URL}config.json`)
       .then((r) => (r.ok ? r.json() : null))
       .then((c) => {
         if (c?.motorFile && c?.homeFile) config = c;

@@ -59,17 +59,53 @@ async function getKpis(params) {
   };
 }
 
+const REASONS_BY_GROUP = {
+  'reasons-for-shopping': {
+    surveyRef: 'Q8',
+    reasons: [
+      { code: 'Q8_1', label: "I usually shop around to make sure I'm getting the best deal", market_pct: 0.62, insurer_pct: 0.58 },
+      { code: 'Q8_3', label: "My premium had gone up a lot compared with last year", market_pct: 0.45, insurer_pct: 0.51 },
+      { code: 'Q8_5', label: "It's time to review my cover", market_pct: 0.38, insurer_pct: 0.42 },
+      { code: 'Q8_7', label: "I wanted to see if I could save money", market_pct: 0.34, insurer_pct: 0.31 },
+      { code: 'Q8_2', label: "My policy was due for renewal", market_pct: 0.28, insurer_pct: 0.25 },
+    ],
+  },
+  'reasons-for-not-shopping': {
+    surveyRef: 'Q19',
+    reasons: [
+      { code: 'Q19_1', label: "I was happy with my current insurer", market_pct: 0.71, insurer_pct: 0.68 },
+      { code: 'Q19_3', label: "I didn't have time to shop around", market_pct: 0.42, insurer_pct: 0.45 },
+      { code: 'Q19_5', label: "I assumed it would be too much hassle", market_pct: 0.28, insurer_pct: 0.31 },
+      { code: 'Q19_2', label: "My premium hadn't changed much", market_pct: 0.24, insurer_pct: 0.22 },
+      { code: 'Q19_4', label: "I'm loyal to my insurer", market_pct: 0.19, insurer_pct: 0.21 },
+    ],
+  },
+  'reasons-for-switching': {
+    surveyRef: 'Q31',
+    reasons: [
+      { code: 'Q31_1', label: "Found a cheaper quote elsewhere", market_pct: 0.58, insurer_pct: 0.62 },
+      { code: 'Q31_3', label: "My premium went up too much", market_pct: 0.49, insurer_pct: 0.52 },
+      { code: 'Q31_5', label: "Wanted better cover or terms", market_pct: 0.31, insurer_pct: 0.28 },
+      { code: 'Q31_2', label: "Poor service from previous insurer", market_pct: 0.22, insurer_pct: 0.19 },
+      { code: 'Q31_4', label: "Saw a good deal advertised", market_pct: 0.18, insurer_pct: 0.21 },
+    ],
+  },
+};
+
 async function getReasons(params) {
   await delay(80);
+  const group = params.questionGroup || 'reasons-for-shopping';
+  const config = REASONS_BY_GROUP[group] || REASONS_BY_GROUP['reasons-for-shopping'];
+  const hasBrand = !!params.brand;
   return {
-    questionGroup: params.questionGroup || 'reasons-for-shopping',
-    surveyRef: 'Q8',
-    base_n: { market: 5100, insurer: params.brand ? 180 : null },
+    questionGroup: group,
+    surveyRef: config.surveyRef,
+    base_n: { market: 5100, insurer: hasBrand ? 180 : null },
     confidence: 'publishable',
-    reasons: [
-      { code: 'Q8_1', label: "I usually shop around to make sure I'm getting the best deal", market_pct: 0.62, insurer_pct: params.brand ? 0.58 : null },
-      { code: 'Q8_3', label: "My premium had gone up a lot compared with last year", market_pct: 0.45, insurer_pct: params.brand ? 0.51 : null },
-    ],
+    reasons: config.reasons.map((r) => ({
+      ...r,
+      insurer_pct: hasBrand ? r.insurer_pct : null,
+    })),
   };
 }
 

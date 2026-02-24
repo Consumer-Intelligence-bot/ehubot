@@ -2,6 +2,18 @@
 
 React + Vite dashboard for insurer shopping and switching analytics.
 
+## Deploy to GitHub Pages
+
+The app deploys automatically to GitHub Pages when you push to `main`.
+
+1. **Enable GitHub Pages** in your repo: **Settings → Pages → Build and deployment**
+   - Source: **GitHub Actions**
+
+2. **Push to `main`** – the workflow builds and deploys. Live at:
+   - `https://<username>.github.io/ehubot/`
+
+3. **Demo data** – `public/data/motor_main_data_demo.csv` is included. Both Motor and Home use it by default.
+
 ## Data file selection (production)
 
 When starting the server, you can choose which CSV files to use for Motor and Home data. The last-used names are remembered.

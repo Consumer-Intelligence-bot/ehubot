@@ -211,20 +211,9 @@ export default function Header() {
           <ToggleBtn active={product === 'motor'} onClick={() => setProduct('motor')}>
             Motor
           </ToggleBtn>
-          {/* Home disabled — coming soon */}
-          <div
-            title="Coming soon"
-            style={{
-              padding: '6px 14px',
-              fontSize: '13px',
-              fontFamily: FONT.family,
-              color: 'rgba(255,255,255,0.35)',
-              cursor: 'not-allowed',
-              userSelect: 'none',
-            }}
-          >
+          <ToggleBtn active={product === 'home'} onClick={() => setProduct('home')}>
             Home
-          </div>
+          </ToggleBtn>
         </ToggleGroup>
 
         {/* Period selector */}
