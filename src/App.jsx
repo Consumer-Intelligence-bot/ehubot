@@ -5,7 +5,7 @@ import Header from './components/shared/Header';
 import TabNavigation from './components/shared/TabNavigation';
 import PlaceholderScreen from './components/shared/PlaceholderScreen';
 import ScreenLayout from './components/shared/ScreenLayout';
-import RenewalLandscape from './components/screen1/RenewalLandscape';
+import MarketPulse from './components/screen1/MarketPulse';
 import ShopOrStay from './components/screen2/ShopOrStay';
 import ValidationPage from './components/shared/ValidationPage';
 import { runValidation } from './utils/validation';
@@ -56,7 +56,7 @@ function AppContent() {
         <Routes>
           <Route path="/" element={
             <ScreenLayout activeStage="renewals">
-              <RenewalLandscape />
+              <MarketPulse />
             </ScreenLayout>
           } />
           <Route path="/renewal-journey" element={<PlaceholderScreen title="The Renewal Journey" />} />

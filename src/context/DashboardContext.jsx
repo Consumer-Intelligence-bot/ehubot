@@ -45,16 +45,18 @@ export function DashboardProvider({ children }) {
 
   const rawData = product === 'motor' ? rawDataMotor : rawDataHome;
 
-  // Filter data by time window
-  const filteredData = useMemo(() => {
-    if (rawData.length === 0) return [];
-    if (timeWindow === 'all') return rawData;
-
+  const filterByTimeWindow = (data) => {
+    if (!data?.length) return [];
+    if (timeWindow === 'all') return data;
     const months = timeWindow === '12m' ? 12 : 24;
-    const allMonths = [...new Set(rawData.map(r => r.RenewalYearMonth))].sort((a, b) => b - a);
+    const allMonths = [...new Set(data.map((r) => r.RenewalYearMonth))].sort((a, b) => b - a);
     const cutoffMonths = allMonths.slice(0, months);
-    return rawData.filter(r => cutoffMonths.includes(r.RenewalYearMonth));
-  }, [rawData, timeWindow]);
+    return data.filter((r) => cutoffMonths.includes(r.RenewalYearMonth));
+  };
+
+  const filteredData = useMemo(() => filterByTimeWindow(rawData), [rawData, timeWindow]);
+  const filteredDataMotor = useMemo(() => filterByTimeWindow(rawDataMotor), [rawDataMotor, timeWindow]);
+  const filteredDataHome = useMemo(() => filterByTimeWindow(rawDataHome), [rawDataHome, timeWindow]);
 
   // Build insurer list (those meeting publishable threshold)
   const insurerList = useMemo(() => {
@@ -87,6 +89,8 @@ export function DashboardProvider({ children }) {
   const value = {
     rawData,
     filteredData,
+    filteredDataMotor,
+    filteredDataHome,
     mode,
     setMode,
     selectedInsurer,
