@@ -31,42 +31,14 @@ def layout():
                 ],
                 className="mb-3",
             ),
-            dbc.Row(
-                [
-                    dbc.Col(html.Div(id="kpi-shop-mo"), md=4),
-                    dbc.Col(html.Div(id="kpi-switch-mo"), md=4),
-                    dbc.Col(html.Div(id="kpi-retain-mo"), md=4),
-                ],
-                className="mb-4",
-            ),
-            dbc.Row(
-                [
-                    dbc.Col(html.Div(id="market-trend-mo"), md=6),
-                    dbc.Col(html.Div(id="why-shop-mo"), md=6),
-                ],
-                className="mb-4",
-            ),
-            dbc.Row(
-                [
-                    dbc.Col(html.Div(id="channel-usage-mo"), md=6),
-                    dbc.Col(html.Div(id="pcw-share-mo"), md=6),
-                ],
-            ),
+            html.Div(id="market-overview-content-mo"),
         ],
         fluid=True,
     )
 
 
 @callback(
-    [
-        Output("kpi-shop-mo", "children"),
-        Output("kpi-switch-mo", "children"),
-        Output("kpi-retain-mo", "children"),
-        Output("market-trend-mo", "children"),
-        Output("why-shop-mo", "children"),
-        Output("channel-usage-mo", "children"),
-        Output("pcw-share-mo", "children"),
-    ],
+    Output("market-overview-content-mo", "children"),
     [Input("product-mo", "value"), Input("time-window-mo", "value")],
 )
 def update_market_overview(product, time_window):
@@ -133,12 +105,29 @@ def update_market_overview(product, time_window):
     kpi_switch = kpi_card("Switching Rate", switch, switch, format_str="{:.0%}")
     kpi_retain = kpi_card("Retention Rate", retain, retain, format_str="{:.0%}")
 
-    return (
-        kpi_shop,
-        kpi_switch,
-        kpi_retain,
-        dcc.Graph(figure=fig_trend),
-        html.Div([html.H6("Why Customers Shop", className="mb-2"), why_table]),
-        channel_div,
-        pcw_div,
+    return dbc.Container(
+        [
+            dbc.Row(
+                [
+                    dbc.Col(kpi_shop, md=4),
+                    dbc.Col(kpi_switch, md=4),
+                    dbc.Col(kpi_retain, md=4),
+                ],
+                className="mb-4",
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(dcc.Graph(figure=fig_trend), md=6),
+                    dbc.Col(html.Div([html.H6("Why Customers Shop", className="mb-2"), why_table]), md=6),
+                ],
+                className="mb-4",
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(channel_div, md=6),
+                    dbc.Col(pcw_div, md=6),
+                ],
+            ),
+        ],
+        fluid=True,
     )
