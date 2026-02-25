@@ -128,12 +128,13 @@ def update_insurer_diagnostic(insurer, age_band, region, payment_type, product, 
     if insurer and sup.can_show_insurer:
         src = calc_top_sources(df_mkt, insurer, 10)
         dst = calc_top_destinations(df_mkt, insurer, 10)
+        # Sort ascending so largest appears at top (Plotly renders first y at bottom)
+        src = src.sort_values(ascending=True) if len(src) > 0 else src
+        dst = dst.sort_values(ascending=True) if len(dst) > 0 else dst
         fig_src = go.Figure(go.Bar(x=src.values, y=src.index, orientation="h")) if len(src) > 0 else go.Figure()
         fig_dst = go.Figure(go.Bar(x=dst.values, y=dst.index, orientation="h")) if len(dst) > 0 else go.Figure()
         fig_src = create_branded_figure(fig_src, title="Top Sources")
         fig_dst = create_branded_figure(fig_dst, title="Top Destinations")
-        for f in (fig_src, fig_dst):
-            f.update_layout(yaxis=dict(categoryorder="total descending"))
         src_div = dcc.Graph(figure=fig_src)
         dst_div = dcc.Graph(figure=fig_dst)
     else:
