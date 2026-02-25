@@ -52,9 +52,6 @@ def layout():
                     dbc.Col(html.Div(id="pcw-share-mo"), md=6),
                 ],
             ),
-            dbc.Row(
-                dbc.Col(html.Footer(id="footer-mo", className="text-muted small mt-4")),
-            ),
         ],
         fluid=True,
     )
@@ -69,10 +66,8 @@ def layout():
         Output("why-shop-mo", "children"),
         Output("channel-usage-mo", "children"),
         Output("pcw-share-mo", "children"),
-        Output("footer-mo", "children", allow_duplicate=True),
     ],
     [Input("product-mo", "value"), Input("time-window-mo", "value")],
-    prevent_initial_call="initial_duplicate",
 )
 def update_market_overview(product, time_window):
     product = product or "Motor"
@@ -113,14 +108,23 @@ def update_market_overview(product, time_window):
     else:
         channel_div = html.P("Data not available", className="text-muted")
 
-    # PCW share
+    # PCW share + footer
     pcw = calc_pcw_usage(df_market)
     if pcw is not None and len(pcw) > 0:
         fig_pcw = go.Figure(go.Pie(labels=pcw.index, values=pcw.values, hole=0.4))
         fig_pcw = create_branded_figure(fig_pcw, title="PCW Market Share")
-        pcw_div = dcc.Graph(figure=fig_pcw)
+        pcw_content = dcc.Graph(figure=fig_pcw)
     else:
-        pcw_div = html.P("Data not available", className="text-muted")
+        pcw_content = html.P("Data not available", className="text-muted")
+
+    n = len(df_market)
+    max_ym = df_market["RenewalYearMonth"].max() if "RenewalYearMonth" in df_market.columns else ""
+    period_str = str(max_ym) if pd.notna(max_ym) and max_ym else "—"
+    footer = html.Div(
+        f"Data period: {period_str} | n={n:,} | (c) Consumer Intelligence 2026",
+        className="text-muted small mt-4",
+    )
+    pcw_div = html.Div([pcw_content, footer])
 
     shop = calc_shopping_rate(df_market)
     switch = calc_switching_rate(df_market)
@@ -129,13 +133,6 @@ def update_market_overview(product, time_window):
     kpi_switch = kpi_card("Switching Rate", switch, switch, format_str="{:.0%}")
     kpi_retain = kpi_card("Retention Rate", retain, retain, format_str="{:.0%}")
 
-    n = len(df_market)
-    max_ym = df_market["RenewalYearMonth"].max() if "RenewalYearMonth" in df_market.columns else ""
-    period_str = str(max_ym) if pd.notna(max_ym) and max_ym else "—"
-    footer = html.Div(
-        f"Data period: {period_str} | n={n:,} | (c) Consumer Intelligence 2026",
-        className="text-muted small",
-    )
     return (
         kpi_shop,
         kpi_switch,
@@ -144,5 +141,4 @@ def update_market_overview(product, time_window):
         html.Div([html.H6("Why Customers Shop", className="mb-2"), why_table]),
         channel_div,
         pcw_div,
-        footer,
     )
