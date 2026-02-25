@@ -53,4 +53,6 @@ def update_flows(insurer, age_band, region, payment_type, product, time_window):
     fig_dst = go.Figure(go.Bar(x=dst.values, y=dst.index, orientation="h")) if len(dst) > 0 else go.Figure()
     fig_src = create_branded_figure(fig_src, title="Gaining From")
     fig_dst = create_branded_figure(fig_dst, title="Losing To")
+    for f in (fig_src, fig_dst):
+        f.update_layout(yaxis=dict(categoryorder="total descending"))
     return filter_bar_el, net_div, dcc.Graph(figure=fig_src), dcc.Graph(figure=fig_dst)

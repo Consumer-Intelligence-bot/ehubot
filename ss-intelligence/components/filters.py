@@ -5,11 +5,26 @@ from dash import dcc
 import dash_bootstrap_components as dbc
 
 
+def _safe_option(label, value) -> dict | None:
+    """Return option dict only if both label and value are valid (non-null, non-nan)."""
+    if label is None or value is None:
+        return None
+    s_label, s_val = str(label).strip(), str(value).strip()
+    if not s_label or not s_val or s_label.lower() == "nan" or s_val.lower() == "nan":
+        return None
+    return {"label": s_label, "value": s_val}
+
+
 def insurer_dropdown(id: str, options: list[dict], value: str | None = None) -> dcc.Dropdown:
     """Insurer dropdown. options from DimInsurer."""
+    opts = []
+    for o in options:
+        opt = _safe_option(o.get("Insurer"), o.get("Insurer") or o.get("value"))
+        if opt:
+            opts.append(opt)
     return dcc.Dropdown(
         id=id,
-        options=[{"label": o["Insurer"], "value": o["Insurer"]} for o in options],
+        options=opts,
         value=value,
         placeholder="Select insurer",
         clearable=True,
@@ -22,7 +37,9 @@ def age_band_dropdown(id: str, options: list[dict], value: str | None = None) ->
     """Age band dropdown. First option 'All Ages' returns None."""
     opts = [{"label": "All Ages", "value": "ALL"}]
     for o in sorted(options, key=lambda x: x.get("SortOrder", 0)):
-        opts.append({"label": o["AgeBand"], "value": o["AgeBand"]})
+        opt = _safe_option(o.get("AgeBand"), o.get("AgeBand") or o.get("value"))
+        if opt and opt["value"] != "ALL":
+            opts.append(opt)
     return dcc.Dropdown(
         id=id,
         options=opts,
@@ -35,7 +52,9 @@ def region_dropdown(id: str, options: list[dict], value: str | None = None) -> d
     """Region dropdown. 'All Regions' returns None."""
     opts = [{"label": "All Regions", "value": "ALL"}]
     for o in sorted(options, key=lambda x: x.get("SortOrder", 0)):
-        opts.append({"label": o["Region"], "value": o["Region"]})
+        opt = _safe_option(o.get("Region"), o.get("Region") or o.get("value"))
+        if opt and opt["value"] != "ALL":
+            opts.append(opt)
     return dcc.Dropdown(
         id=id,
         options=opts,
@@ -48,7 +67,9 @@ def payment_type_dropdown(id: str, options: list[dict], value: str | None = None
     """Payment type dropdown. 'All Payment Types' returns None."""
     opts = [{"label": "All Payment Types", "value": "ALL"}]
     for o in sorted(options, key=lambda x: x.get("SortOrder", 0)):
-        opts.append({"label": o["PaymentType"], "value": o["PaymentType"]})
+        opt = _safe_option(o.get("PaymentType"), o.get("PaymentType") or o.get("value"))
+        if opt and opt["value"] != "ALL":
+            opts.append(opt)
     return dcc.Dropdown(
         id=id,
         options=opts,

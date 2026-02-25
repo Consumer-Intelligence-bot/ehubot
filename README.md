@@ -1,61 +1,78 @@
-# Shopping & Switching Dashboard
+# Shopping & Switching Intelligence
 
-React + Vite dashboard for insurer shopping and switching analytics.
+Analytics dashboard for insurer shopping and switching data.
 
-## Deploy to GitHub Pages
+## Build and start
 
-The app deploys automatically to GitHub Pages when you push to `main`.
+### Option A: Python (local development)
 
-1. **Enable GitHub Pages** in your repo: **Settings → Pages → Build and deployment**
-   - Source: **GitHub Actions**
+**Prerequisites:** Python 3.11+
 
-2. **Push to `main`** – the workflow builds and deploys. Live at:
-   - `https://<username>.github.io/ehubot/`
+```bash
+cd ss-intelligence
 
-3. **Demo data** – `public/data/motor_main_data_demo.csv` is included. Both Motor and Home use it by default.
+# Create virtual environment
+python -m venv venv
 
-## Data file selection (production)
+# Activate (Windows)
+venv\Scripts\activate
 
-When starting the server, you can choose which CSV files to use for Motor and Home data. The last-used names are remembered.
+# Activate (Linux/macOS)
+# source venv/bin/activate
 
-### Deploy and run
+# Install dependencies
+pip install -r requirements.txt
 
-1. **Build locally:**
-   ```bash
-   npm run build
-   ```
+# Run the app (port 8050)
+python app.py
+```
 
-2. **Copy to server:** Upload `dist/`, `scripts/`, `package.json`, and create a `data/` folder with your CSV files.
+Open **http://localhost:8050**
 
-3. **On the server, start with file selection:**
-   ```bash
-   npm run start
-   ```
-   You will be prompted:
-   - **Motor data file** [last used or motor_main_data_demo.csv]
-   - **Home data file** [last used or all home data.csv]
+### Option B: Docker
 
-   Press Enter to keep the default, or type a new filename. The script copies the chosen files into `dist/data/` and starts the web server.
+```bash
+cd ss-intelligence
 
-4. **Environment variables (optional):**
-   - `DATA_DIR` – directory containing your CSV files (default: `./data`)
-   - `DIST_DIR` – built app directory (default: `./dist`)
+# Build the image
+docker build -t ss-intelligence .
+
+# Run (port 8050)
+docker run -d --name ss-intelligence -p 8050:8050 ss-intelligence
+```
+
+Open **http://localhost:8050**
+
+### Option C: Production (gunicorn)
+
+```bash
+cd ss-intelligence
+source venv/bin/activate   # or venv\Scripts\activate on Windows
+gunicorn app:server -b 0.0.0.0:8050 --workers 4 --timeout 120
+```
 
 ---
 
-## React + Vite
+## Data
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Place Motor and Home CSV files in `ss-intelligence/data/raw/`:
 
-Currently, two official plugins are available:
+- **Motor:** `motor_main_data.csv`, `motor_main_data_demo.csv`, or `motor all data.csv`
+- **Home:** `all home data.csv`, `home_main_data.csv`, or `ff_home.csv`
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+If `data/raw/` is empty, the app falls back to `public/data/` (includes demo data).
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Optional: Basic auth
 
-## Expanding the ESLint configuration
+Set environment variables before starting:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+export BASIC_AUTH_USERNAME=admin
+export BASIC_AUTH_PASSWORD=your-password
+```
+
+---
+
+For full deployment details, see [ss-intelligence/DEPLOY.md](ss-intelligence/DEPLOY.md).

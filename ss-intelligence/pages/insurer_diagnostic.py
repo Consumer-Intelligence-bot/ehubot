@@ -132,6 +132,8 @@ def update_insurer_diagnostic(insurer, age_band, region, payment_type, product, 
         fig_dst = go.Figure(go.Bar(x=dst.values, y=dst.index, orientation="h")) if len(dst) > 0 else go.Figure()
         fig_src = create_branded_figure(fig_src, title="Top Sources")
         fig_dst = create_branded_figure(fig_dst, title="Top Destinations")
+        for f in (fig_src, fig_dst):
+            f.update_layout(yaxis=dict(categoryorder="total descending"))
         src_div = dcc.Graph(figure=fig_src)
         dst_div = dcc.Graph(figure=fig_dst)
     else:
