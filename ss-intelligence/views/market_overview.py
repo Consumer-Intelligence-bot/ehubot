@@ -12,24 +12,14 @@ from analytics.demographics import apply_filters
 from analytics.reasons import calc_reason_ranking
 from analytics.channels import calc_channel_usage, calc_pcw_usage
 from components.cards import kpi_card
-from components.filters import product_toggle, time_window_dropdown
 from components.branded_chart import create_branded_figure
 from shared import format_year_month
 
 
 def layout(DF_MOTOR, DF_HOME):
-    """Return Market Overview layout. DF_MOTOR/DF_HOME passed to avoid circular import."""
+    """Return Market Overview layout. Uses global filter bar from app layout."""
     return dbc.Container(
-        [
-            dbc.Row(
-                [
-                    dbc.Col(product_toggle("product-mo", "Motor"), md=2),
-                    dbc.Col(time_window_dropdown("time-window-mo", "24"), md=2),
-                ],
-                className="mb-3",
-            ),
-            html.Div(id="market-overview-content-mo"),
-        ],
+        [html.Div(id="market-overview-content-mo")],
         fluid=True,
         className="mb-5",
     )
@@ -40,7 +30,7 @@ def register_callbacks(app, DF_MOTOR, DF_HOME):
 
     @app.callback(
         Output("market-overview-content-mo", "children"),
-        [Input("product-mo", "value"), Input("time-window-mo", "value")],
+        [Input("global-product", "value"), Input("global-time-window", "value")],
     )
     def update_market_overview(product, time_window):
         product = product or "Motor"

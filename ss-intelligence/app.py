@@ -21,6 +21,8 @@ if str(sys_path) not in sys.path:
     sys.path.insert(0, str(sys_path))
 
 from shared import DF_MOTOR, DF_HOME, DIMENSIONS, DF_ALL
+from auth.access import get_authorized_insurers
+from components.global_filters import global_filter_bar
 
 app = dash.Dash(
     __name__,
@@ -59,6 +61,17 @@ def update_nav_active(pathname):
     ]
 
 
+def _build_global_filter_bar():
+    """Build global filter bar with dimensions. Called at layout time."""
+    all_insurers = DIMENSIONS["DimInsurer"]["Insurer"].dropna().astype(str).tolist()
+    authorized = get_authorized_insurers(all_insurers)
+    dim_insurer = [{"Insurer": i, "value": i, "label": i, "SortOrder": idx} for idx, i in enumerate(authorized)]
+    dim_age = DIMENSIONS["DimAgeBand"].to_dict("records")
+    dim_region = DIMENSIONS["DimRegion"].to_dict("records")
+    dim_payment = DIMENSIONS["DimPaymentType"].to_dict("records")
+    return global_filter_bar(dim_insurer, dim_age, dim_region, dim_payment)
+
+
 @callback(
     Output("page-content", "children"),
     Input("url", "pathname"),
@@ -67,6 +80,15 @@ def display_page(pathname):
     if pathname == "/" or pathname is None:
         return market_overview_layout(DF_MOTOR, DF_HOME)
     return dbc.Container(dash.page_container, fluid=True, className="mb-5")
+
+
+@callback(
+    Output("global-filter-container", "className"),
+    Input("url", "pathname"),
+)
+def toggle_global_filters(pathname):
+    """Hide filter bar on Admin page; show on all others."""
+    return "d-none" if pathname == "/admin" else "mb-3"
 
 
 app.layout = html.Div(
@@ -88,6 +110,7 @@ app.layout = html.Div(
             dark=True,
             className="mb-3",
         ),
+        html.Div(_build_global_filter_bar(), id="global-filter-container", className="mb-3"),
         html.Div(id="page-content"),
     ]
 )

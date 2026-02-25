@@ -11,7 +11,6 @@ from analytics.rates import calc_retention_rate
 from analytics.bayesian import bayesian_smooth_rate
 from analytics.demographics import apply_filters
 from config import MIN_BASE_PUBLISHABLE
-from components.filters import age_band_dropdown, region_dropdown, payment_type_dropdown, product_toggle, time_window_dropdown
 from components.filter_bar import filter_bar
 from components.branded_chart import create_branded_figure
 from auth.access import get_authorized_insurers
@@ -19,17 +18,7 @@ import dash
 dash.register_page(__name__, path="/insurer-comparison", name="Insurer Comparison")
 
 def layout():
-    dim_age = DIMENSIONS["DimAgeBand"].to_dict("records")
-    dim_region = DIMENSIONS["DimRegion"].to_dict("records")
-    dim_payment = DIMENSIONS["DimPaymentType"].to_dict("records")
     return dbc.Container([
-        dbc.Row([
-            dbc.Col(age_band_dropdown("age-comp", dim_age), md=2),
-            dbc.Col(region_dropdown("region-comp", dim_region), md=2),
-            dbc.Col(payment_type_dropdown("payment-comp", dim_payment), md=2),
-            dbc.Col(product_toggle("product-comp", "Motor"), md=2),
-            dbc.Col(time_window_dropdown("time-comp", "24"), md=2),
-        ], className="mb-2"),
         html.Div(id="filter-bar-comp"),
         dbc.Row([dbc.Col(html.Div(id="retention-chart-comp"), md=12)], className="mb-4"),
         dbc.Row([dbc.Col(html.Div(id="metrics-table-comp"), md=12)]),
@@ -40,7 +29,7 @@ def _norm(val):
 
 @callback(
     [Output("filter-bar-comp", "children"), Output("retention-chart-comp", "children"), Output("metrics-table-comp", "children")],
-    [Input("age-comp", "value"), Input("region-comp", "value"), Input("payment-comp", "value"), Input("product-comp", "value"), Input("time-comp", "value")],
+    [Input("global-age-band", "value"), Input("global-region", "value"), Input("global-payment-type", "value"), Input("global-product", "value"), Input("global-time-window", "value")],
 )
 def update_comparison(age_band, region, payment_type, product, time_window):
     product = product or "Motor"

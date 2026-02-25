@@ -8,42 +8,21 @@ from dash import html, dcc, callback, Input, Output
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 
-from shared import DF_MOTOR, DIMENSIONS
+from shared import DF_MOTOR
 from analytics.channels import calc_channel_usage, calc_quote_buy_mismatch
 from analytics.demographics import apply_filters
 from analytics.suppression import check_suppression
-from components.filters import insurer_dropdown, age_band_dropdown, region_dropdown, payment_type_dropdown, product_toggle, time_window_dropdown
 from components.filter_bar import filter_bar
 from components.cards import kpi_card
 from components.branded_chart import create_branded_figure
-from auth.access import get_authorized_insurers
-
 import dash
 
 dash.register_page(__name__, path="/channel-pcw", name="Channel & PCW")
 
 
 def layout():
-    all_insurers = DIMENSIONS["DimInsurer"]["Insurer"].dropna().astype(str).tolist()
-    authorized = get_authorized_insurers(all_insurers)
-    dim_insurer = [{"Insurer": i, "value": i, "label": i} for i in authorized]
-    dim_age = DIMENSIONS["DimAgeBand"].to_dict("records")
-    dim_region = DIMENSIONS["DimRegion"].to_dict("records")
-    dim_payment = DIMENSIONS["DimPaymentType"].to_dict("records")
-
     return dbc.Container(
         [
-            dbc.Row(
-                [
-                    dbc.Col(insurer_dropdown("insurer-ch", dim_insurer), md=2),
-                    dbc.Col(age_band_dropdown("age-ch", dim_age), md=2),
-                    dbc.Col(region_dropdown("region-ch", dim_region), md=2),
-                    dbc.Col(payment_type_dropdown("payment-ch", dim_payment), md=2),
-                    dbc.Col(product_toggle("product-ch", "Motor"), md=2),
-                    dbc.Col(time_window_dropdown("time-ch", "24"), md=2),
-                ],
-                className="mb-2",
-            ),
             html.Div(id="filter-bar-ch"),
             dbc.Row(
                 [dbc.Col(html.Div(id="mismatch-ch"), md=6), dbc.Col(html.Div(id="channel-usage-ch"), md=6)],
@@ -60,7 +39,7 @@ def _norm(val):
 
 @callback(
     [Output("filter-bar-ch", "children"), Output("mismatch-ch", "children"), Output("channel-usage-ch", "children")],
-    [Input("insurer-ch", "value"), Input("age-ch", "value"), Input("region-ch", "value"), Input("payment-ch", "value"), Input("product-ch", "value"), Input("time-ch", "value")],
+    [Input("global-insurer", "value"), Input("global-age-band", "value"), Input("global-region", "value"), Input("global-payment-type", "value"), Input("global-product", "value"), Input("global-time-window", "value")],
 )
 def update_channel(insurer, age_band, region, payment_type, product, time_window):
     product = product or "Motor"
