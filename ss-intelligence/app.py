@@ -77,9 +77,9 @@ app.layout = html.Div(
 
 
 @callback(
-    Output("url", "pathname"),
+    Output("url", "pathname", allow_duplicate=True),
     Input("url", "pathname"),
-    prevent_initial_call=False,
+    prevent_initial_call="initial_duplicate",
 )
 def redirect_root(pathname):
     """Redirect / to /market-overview."""
