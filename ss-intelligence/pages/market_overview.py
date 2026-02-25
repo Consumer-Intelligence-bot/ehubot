@@ -69,9 +69,10 @@ def layout():
         Output("why-shop-mo", "children"),
         Output("channel-usage-mo", "children"),
         Output("pcw-share-mo", "children"),
-        Output("footer-mo", "children"),
+        Output("footer-mo", "children", allow_duplicate=True),
     ],
     [Input("product-mo", "value"), Input("time-window-mo", "value")],
+    prevent_initial_call=False,
 )
 def update_market_overview(product, time_window):
     product = product or "Motor"
