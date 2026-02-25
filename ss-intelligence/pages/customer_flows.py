@@ -5,7 +5,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from dash import html, dcc, callback, Input, Output
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
-from app import DF_MOTOR, DIMENSIONS
+from shared import DF_MOTOR, DIMENSIONS
 from analytics.flows import calc_net_flow, calc_top_sources, calc_top_destinations
 from analytics.demographics import apply_filters
 from analytics.suppression import check_suppression
@@ -56,7 +56,7 @@ def update_flows(insurer, age_band, region, payment_type, product, time_window):
     if not insurer:
         return filter_bar_el, html.P("Select an insurer", className="text-muted"), html.P("Select an insurer", className="text-muted"), html.P("Select an insurer", className="text-muted")
     if not sup.can_show_insurer:
-        return filter_bar_el, html.P(sup.message, className="text-muted"), html.Div(), html.Div()
+        return filter_bar_el, html.P(sup.message, className="text-muted"), html.Div("—", className="text-muted"), html.Div("—", className="text-muted")
     nf = calc_net_flow(df_mkt, insurer)
     net_div = dbc.Row([
         dbc.Col(kpi_card("Gained", nf["gained"], nf["gained"], format_str="{:.0f}"), md=4),

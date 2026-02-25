@@ -58,24 +58,22 @@ def kpi_card(
     if suppression_message and insurer_value is None:
         body.append(html.P(suppression_message, className="text-muted small"))
     else:
-        body.append(
+        inner_children = [
             html.Div(
-                [
-                    html.Div(
-                        [html.Span("Your ", className="text-muted"), html.Strong(insurer_display)],
-                        style={"color": CI_MAGENTA},
-                    ),
-                    html.Div(
-                        [html.Span("Market: ", className="text-muted"), market_display],
-                        style={"color": CI_GREY},
-                    ),
-                    html.Div(
-                        html.Span("Gap: " + gap_str, style={"color": gap_col, "fontWeight": 600}),
-                    ),
-                    html.Div(ci_suffix, className="small text-muted") if ci_suffix else None,
-                ]
-            )
-        )
+                [html.Span("Your ", className="text-muted"), html.Strong(insurer_display)],
+                style={"color": CI_MAGENTA},
+            ),
+            html.Div(
+                [html.Span("Market: ", className="text-muted"), market_display],
+                style={"color": CI_GREY},
+            ),
+            html.Div(
+                html.Span("Gap: " + gap_str, style={"color": gap_col, "fontWeight": 600}),
+            ),
+        ]
+        if ci_suffix:
+            inner_children.append(html.Div(ci_suffix, className="small text-muted"))
+        body.append(html.Div(inner_children))
 
     return dbc.Card(
         [

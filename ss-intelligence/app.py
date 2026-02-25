@@ -20,23 +20,7 @@ sys_path = Path(__file__).resolve().parent
 if str(sys_path) not in sys.path:
     sys.path.insert(0, str(sys_path))
 
-from data.loader import load_data
-from data.dimensions import get_all_dimensions
-
-# Load data on startup
-DF_MOTOR, _ = load_data("Motor")
-try:
-    DF_HOME, _ = load_data("Home")
-except FileNotFoundError:
-    DF_HOME = None
-DIMENSIONS = get_all_dimensions(DF_MOTOR)
-
-# Full dataset (Motor + Home when available)
-import pandas as pd
-
-DF_ALL = DF_MOTOR.copy()
-if DF_HOME is not None and len(DF_HOME) > 0:
-    DF_ALL = pd.concat([DF_MOTOR, DF_HOME], ignore_index=True)
+from shared import DF_MOTOR, DF_HOME, DIMENSIONS, DF_ALL
 
 app = dash.Dash(
     __name__,
@@ -48,6 +32,31 @@ app = dash.Dash(
 # Market Overview lives outside Dash Pages to avoid duplicate callback registration for path="/"
 from views.market_overview import layout as market_overview_layout, register_callbacks as register_market_overview
 register_market_overview(app, DF_MOTOR, DF_HOME)
+
+
+NAV_ITEMS = [
+    ("Market Overview", "/"),
+    ("Insurer Diagnostic", "/insurer-diagnostic"),
+    ("Comparison", "/insurer-comparison"),
+    ("Channel & PCW", "/channel-pcw"),
+    ("Price Sensitivity", "/price-sensitivity"),
+    ("Customer Flows", "/customer-flows"),
+    ("Admin", "/admin"),
+]
+
+
+@callback(
+    Output("main-nav", "children"),
+    Input("url", "pathname"),
+)
+def update_nav_active(pathname):
+    pathname = pathname or "/"
+    return [
+        dbc.NavItem(
+            dbc.NavLink(label, href=href, active=pathname == href or (href == "/" and pathname == "/"))
+        )
+        for label, href in NAV_ITEMS
+    ]
 
 
 @callback(
@@ -68,15 +77,7 @@ app.layout = html.Div(
                 [
                     dbc.NavbarBrand("Shopping & Switching Intelligence", href="/", className="fw-bold"),
                     dbc.Nav(
-                        [
-                            dbc.NavItem(dbc.NavLink("Market Overview", href="/")),
-                            dbc.NavItem(dbc.NavLink("Insurer Diagnostic", href="/insurer-diagnostic")),
-                            dbc.NavItem(dbc.NavLink("Comparison", href="/insurer-comparison")),
-                            dbc.NavItem(dbc.NavLink("Channel & PCW", href="/channel-pcw")),
-                            dbc.NavItem(dbc.NavLink("Price Sensitivity", href="/price-sensitivity")),
-                            dbc.NavItem(dbc.NavLink("Customer Flows", href="/customer-flows")),
-                            dbc.NavItem(dbc.NavLink("Admin", href="/admin")),
-                        ],
+                        id="main-nav",
                         navbar=True,
                         className="ms-auto",
                     ),
@@ -90,6 +91,7 @@ app.layout = html.Div(
         html.Div(id="page-content"),
     ]
 )
+
 
 server = app.server
 

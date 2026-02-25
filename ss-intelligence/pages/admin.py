@@ -9,7 +9,7 @@ import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 import pandas as pd
 
-from app import DF_MOTOR, DIMENSIONS
+from shared import DF_MOTOR, DIMENSIONS, format_year_month
 from analytics.demographics import apply_filters
 from analytics.flows import calc_flow_matrix
 from config import MIN_BASE_PUBLISHABLE
@@ -126,7 +126,8 @@ def update_admin(_path):
     )
 
     by_month = DF_MOTOR.groupby("RenewalYearMonth").size().reset_index(name="count")
-    fig = go.Figure(go.Bar(x=by_month["RenewalYearMonth"].astype(str), y=by_month["count"]))
+    by_month["month_label"] = by_month["RenewalYearMonth"].apply(format_year_month)
+    fig = go.Figure(go.Bar(x=by_month["month_label"], y=by_month["count"]))
     fig = fig.update_layout(title="Respondents by Renewal Month")
     dist_div = dcc.Graph(figure=fig)
 

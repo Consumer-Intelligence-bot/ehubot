@@ -1,8 +1,9 @@
 """
 Load source data from CSV or Parquet.
-Reads from data/raw/ or fallback ../public/data/.
+Reads from DATA_DIR (env), then data/processed/, data/raw/, fallback ../public/data/.
 Applies transforms before returning.
 """
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -14,6 +15,10 @@ _DATA_DIR = Path(__file__).resolve().parent
 RAW_DIR = _DATA_DIR / "raw"
 PROCESSED_DIR = _DATA_DIR / "processed"
 FALLBACK_DIR = _DATA_DIR.parent.parent / "public" / "data"
+
+# Primary data directory (e.g. OneDrive) - set via DATA_DIR env, or use default
+DATA_DIR = os.getenv("DATA_DIR", r"c:\Users\ianch\OneDrive - CONSUMER INTELLIGENCE LTD")
+_DATA_DIR_PATH = Path(DATA_DIR) if DATA_DIR else None
 
 
 def _normalise_column_name(name: str) -> str:
@@ -30,19 +35,36 @@ def _normalise_column_name(name: str) -> str:
 
 
 def _read_csv(path: Path) -> pd.DataFrame:
-    """Read CSV and normalise column names."""
+    """Read CSV, normalise column names, and deduplicate columns (keep first)."""
     df = pd.read_csv(path, dtype=str, low_memory=False)
     df.columns = [_normalise_column_name(c) for c in df.columns]
+    if df.columns.duplicated().any():
+        df = df.loc[:, ~df.columns.duplicated()]
     return df
 
 
 def load_data(product: str) -> tuple[pd.DataFrame, dict]:
     """
     Load data for Motor or Home.
-    Tries: data/processed/{product}.parquet, then data/raw/, then ../public/data/.
+    Tries: DATA_DIR (env), data/processed/, data/raw/, then ../public/data/.
     Returns (DataFrame, metadata dict with keys: source, row_count, product).
     """
     metadata = {"product": product, "source": None, "row_count": 0}
+
+    # 0. Try primary DATA_DIR (e.g. OneDrive) - motor all data.csv, all home data.csv
+    primary_files = {
+        "Motor": ["motor all data.csv"],
+        "Home": ["all home data.csv"],
+    }
+    if _DATA_DIR_PATH and _DATA_DIR_PATH.exists():
+        for fname in primary_files.get(product, []):
+            candidate = _DATA_DIR_PATH / fname
+            if candidate.exists():
+                df = _read_csv(candidate)
+                df = transform(df, product)
+                metadata["source"] = str(candidate)
+                metadata["row_count"] = len(df)
+                return df, metadata
 
     # 1. Try Parquet (processed) - already transformed
     parquet_path = PROCESSED_DIR / f"{product.lower()}.parquet"
@@ -54,8 +76,8 @@ def load_data(product: str) -> tuple[pd.DataFrame, dict]:
 
     # 2. Try CSV in data/raw/ - apply transforms
     raw_files = {
-        "Motor": ["motor_main_data.csv", "motor_main_data_demo.csv", "motor.csv"],
-        "Home": ["home_main_data.csv", "all home data.csv", "home.csv"],
+        "Motor": ["motor all data.csv", "motor_main_data.csv", "motor_main_data_demo.csv", "motor.csv"],
+        "Home": ["all home data.csv", "home_main_data.csv", "home.csv"],
     }
     for fname in raw_files.get(product, [f"{product.lower()}.csv"]):
         candidate = RAW_DIR / fname
@@ -68,7 +90,7 @@ def load_data(product: str) -> tuple[pd.DataFrame, dict]:
 
     # 3. Fallback: ../public/data/
     fallback_files = {
-        "Motor": ["motor_main_data_demo.csv", "motor_main_data.csv"],
+        "Motor": ["motor all data.csv", "motor_main_data_demo.csv", "motor_main_data.csv"],
         "Home": ["all home data.csv", "home_main_data.csv"],
     }
     for fname in fallback_files.get(product, []):
@@ -82,5 +104,5 @@ def load_data(product: str) -> tuple[pd.DataFrame, dict]:
 
     raise FileNotFoundError(
         f"No data file found for {product}. "
-        f"Tried: {parquet_path}, {RAW_DIR}, {FALLBACK_DIR}"
+        f"Tried: DATA_DIR={_DATA_DIR_PATH}, {parquet_path}, {RAW_DIR}, {FALLBACK_DIR}"
     )

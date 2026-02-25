@@ -14,6 +14,7 @@ from analytics.channels import calc_channel_usage, calc_pcw_usage
 from components.cards import kpi_card
 from components.filters import product_toggle, time_window_dropdown
 from components.branded_chart import create_branded_figure
+from shared import format_year_month
 
 
 def layout(DF_MOTOR, DF_HOME):
@@ -52,8 +53,9 @@ def register_callbacks(app, DF_MOTOR, DF_HOME):
             total=("UniqueID", "count"),
         ).reset_index()
         by_month["retention"] = by_month["retained"] / by_month["total"]
+        by_month["month_label"] = by_month["RenewalYearMonth"].apply(format_year_month)
         fig_trend = go.Figure()
-        fig_trend.add_trace(go.Scatter(x=by_month["RenewalYearMonth"].astype(str), y=by_month["retention"], mode="lines+markers"))
+        fig_trend.add_trace(go.Scatter(x=by_month["month_label"], y=by_month["retention"], mode="lines+markers"))
         fig_trend = create_branded_figure(fig_trend, title="Market Retention Trend")
 
         why = calc_reason_ranking(df_market, "Q8", 5) if "Q8" in df_market.columns else []
@@ -83,7 +85,7 @@ def register_callbacks(app, DF_MOTOR, DF_HOME):
 
         n = len(df_market)
         max_ym = df_market["RenewalYearMonth"].max() if "RenewalYearMonth" in df_market.columns else ""
-        period_str = str(max_ym) if pd.notna(max_ym) and max_ym else "—"
+        period_str = format_year_month(max_ym) if pd.notna(max_ym) and max_ym else "—"
         footer = html.Div(
             f"Data period: {period_str} | n={n:,} | (c) Consumer Intelligence 2026",
             className="text-muted small mt-4",

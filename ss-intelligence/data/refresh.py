@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from data.loader import RAW_DIR, PROCESSED_DIR, FALLBACK_DIR, load_data
+from data.loader import RAW_DIR, PROCESSED_DIR, load_data
 from data.transforms import transform
 from data.dimensions import get_all_dimensions
 
@@ -34,29 +34,13 @@ def _read_csv(path: Path) -> pd.DataFrame:
 def refresh_product(product: str, csv_path: Path | None = None) -> pd.DataFrame:
     """
     Load CSV from path or default location, transform, return DataFrame.
-    Does not save Parquet; caller can do that.
+    Uses load_data (same as app) so DATA_DIR, raw, fallback are all respected.
     """
     if csv_path and csv_path.exists():
         df = _read_csv(csv_path)
-    else:
-        # Try default locations
-        for fname in (
-            ["motor_main_data.csv", "motor_main_data_demo.csv"]
-            if product == "Motor"
-            else ["home_main_data.csv", "all home data.csv"]
-        ):
-            for base in (RAW_DIR, FALLBACK_DIR):
-                candidate = base / fname
-                if candidate.exists():
-                    df = _read_csv(candidate)
-                    break
-            else:
-                continue
-            break
-        else:
-            raise FileNotFoundError(f"No CSV found for {product}")
-
-    return transform(df, product)
+        return transform(df, product)
+    df, _ = load_data(product)
+    return df
 
 
 def run_refresh() -> None:

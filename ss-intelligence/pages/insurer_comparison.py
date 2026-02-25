@@ -6,7 +6,7 @@ from dash import html, dcc, callback, Input, Output
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 import pandas as pd
-from app import DF_MOTOR, DIMENSIONS
+from shared import DF_MOTOR, DIMENSIONS
 from analytics.rates import calc_retention_rate
 from analytics.bayesian import bayesian_smooth_rate
 from analytics.demographics import apply_filters

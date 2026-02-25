@@ -8,7 +8,7 @@ from dash import html, dcc, callback, Input, Output
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 
-from app import DF_MOTOR, DIMENSIONS
+from shared import DF_MOTOR, DIMENSIONS
 from analytics.rates import calc_retention_rate
 from analytics.bayesian import bayesian_smooth_rate
 from analytics.bayesian_precompute import get_cached_rate
@@ -46,6 +46,7 @@ def layout():
 
     return dbc.Container(
         [
+            html.H2("Insurer Diagnostic", className="mb-3 fw-bold"),
             dbc.Row(
                 [
                     dbc.Col(insurer_dropdown("insurer-diag", dim_insurer), md=2),

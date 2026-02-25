@@ -8,7 +8,7 @@ from dash import html, dcc, callback, Input, Output
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 
-from app import DF_MOTOR, DIMENSIONS
+from shared import DF_MOTOR, DIMENSIONS
 from analytics.channels import calc_channel_usage, calc_quote_buy_mismatch
 from analytics.demographics import apply_filters
 from analytics.suppression import check_suppression
