@@ -4,12 +4,17 @@ Plotly Dash web dashboard for insurer shopping and switching analytics.
 
 ## Setup
 
+Use a virtual environment (required on Linux/macOS to avoid `externally-managed-environment`):
+
 ```bash
 cd ss-intelligence
-python -m venv venv
-venv\Scripts\activate   # Windows
+python3 -m venv venv
+source venv/bin/activate   # Linux/macOS
+# OR: venv\Scripts\activate   # Windows
 pip install -r requirements.txt
 ```
+
+If you see `externally-managed-environment` when running `pip install`, create and activate the venv first.
 
 ## Data
 
