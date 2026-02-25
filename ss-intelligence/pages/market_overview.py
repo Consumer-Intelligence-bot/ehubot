@@ -19,7 +19,7 @@ from components.filters import product_toggle, time_window_dropdown
 from components.branded_chart import create_branded_figure
 
 import dash
-dash.register_page(__name__, path="/market-overview", name="Market Overview")
+dash.register_page(__name__, path="/", name="Market Overview")
 
 def layout():
     return dbc.Container(

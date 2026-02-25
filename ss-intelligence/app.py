@@ -11,7 +11,7 @@ except ImportError:
     pass
 
 import dash
-from dash import html, dcc, callback, Output, Input
+from dash import html, dcc
 import dash_bootstrap_components as dbc
 
 # Add project root to path
@@ -50,10 +50,10 @@ app.layout = html.Div(
         dbc.Navbar(
             dbc.Container(
                 [
-                    dbc.NavbarBrand("Shopping & Switching Intelligence", href="/market-overview", className="fw-bold"),
+                    dbc.NavbarBrand("Shopping & Switching Intelligence", href="/", className="fw-bold"),
                     dbc.Nav(
                         [
-                            dbc.NavItem(dbc.NavLink("Market Overview", href="/market-overview")),
+                            dbc.NavItem(dbc.NavLink("Market Overview", href="/")),
                             dbc.NavItem(dbc.NavLink("Insurer Diagnostic", href="/insurer-diagnostic")),
                             dbc.NavItem(dbc.NavLink("Comparison", href="/insurer-comparison")),
                             dbc.NavItem(dbc.NavLink("Channel & PCW", href="/channel-pcw")),
@@ -75,19 +75,6 @@ app.layout = html.Div(
     ]
 )
 
-
-@callback(
-    Output("url", "pathname", allow_duplicate=True),
-    Input("url", "pathname"),
-    prevent_initial_call="initial_duplicate",
-)
-def redirect_root(pathname):
-    """Redirect / to /market-overview."""
-    if pathname == "/" or pathname is None:
-        return "/market-overview"
-    return dash.no_update
-
-
 server = app.server
 
 # Basic auth (optional MVP - enable when BASIC_AUTH_USERNAME and BASIC_AUTH_PASSWORD set)
@@ -98,4 +85,5 @@ if _auth_user and _auth_pass:
     BasicAuth(app, {_auth_user: _auth_pass})
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=8050)
+    # use_reloader=False prevents duplicate callback registration (reloader runs app twice)
+    app.run(debug=True, host="0.0.0.0", port=8050, use_reloader=False)

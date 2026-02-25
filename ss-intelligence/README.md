@@ -37,6 +37,8 @@ python app.py
 
 Open http://localhost:8050
 
+**Note:** The app runs with `use_reloader=False` to avoid duplicate callback errors that occur when the Flask reloader executes the app twice in debug mode.
+
 ## Optional Auth
 
 Set in `.env`:
