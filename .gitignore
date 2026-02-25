@@ -12,8 +12,8 @@ dist
 dist-ssr
 *.local
 
-# Data files (user uploads, server config)
-data/
+# Data files (user uploads, server config) - /data/ = root only, not ss-intelligence/data/
+/data/
 data-config.json
 
 # Editor directories and files
