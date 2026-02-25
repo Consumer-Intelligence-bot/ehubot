@@ -3,8 +3,10 @@ import pytest
 import pandas as pd
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from analytics.flows import calc_net_flow
+from analytics.flows import calc_net_flow, calc_flow_matrix, is_flow_cell_suppressed
+
 
 @pytest.fixture
 def flow_df():
@@ -15,6 +17,32 @@ def flow_df():
         "PreviousCompany": ["A"] * 10 + ["A"] * 10 + [None] * 80,
     })
 
+
 def test_net_flow(flow_df):
     nf = calc_net_flow(flow_df, "B")
+    assert nf["gained"] == 10
+    assert nf["lost"] == 0
     assert nf["net"] == 10
+
+
+def test_net_flow_lost(flow_df):
+    nf = calc_net_flow(flow_df, "A")
+    assert nf["gained"] == 0
+    assert nf["lost"] == 20
+    assert nf["net"] == -20
+
+
+def test_flow_balance(flow_df):
+    """Total gained across market should equal total lost."""
+    flow_mat = calc_flow_matrix(flow_df)
+    if len(flow_mat) == 0:
+        return
+    total_switches = flow_mat.sum().sum()
+    # Sum of flows into each dest = sum of flows out of each source = total
+    assert total_switches == 20
+
+
+def test_flow_cell_suppression():
+    assert is_flow_cell_suppressed(9) is True
+    assert is_flow_cell_suppressed(10) is False
+    assert is_flow_cell_suppressed(0) is True

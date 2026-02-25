@@ -1,0 +1,31 @@
+/* CI Brand typography and styles - spec Section 11 */
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  color: #54585A;
+}
+
+h1 {
+  font-size: 24px;
+  font-weight: bold;
+  color: #981D97;
+}
+
+h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #54585A;
+}
+
+.kpi-value {
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.kpi-title {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.card-body {
+  font-size: 14px;
+}

@@ -11,6 +11,7 @@ import plotly.graph_objects as go
 from app import DF_MOTOR, DIMENSIONS
 from analytics.rates import calc_retention_rate
 from analytics.bayesian import bayesian_smooth_rate
+from analytics.bayesian_precompute import get_cached_rate
 from analytics.demographics import apply_filters, get_active_filters
 from analytics.suppression import check_suppression
 from analytics.flows import calc_net_flow, calc_top_sources, calc_top_destinations
@@ -28,6 +29,7 @@ from components.filter_bar import filter_bar
 from components.confidence_banner import confidence_banner
 from components.dual_table import dual_table
 from components.branded_chart import create_branded_figure
+from auth.access import get_authorized_insurers
 
 import dash
 
@@ -35,7 +37,9 @@ dash.register_page(__name__, path="/insurer-diagnostic", name="Insurer Diagnosti
 
 
 def layout():
-    dim_insurer = DIMENSIONS["DimInsurer"].to_dict("records")
+    all_insurers = DIMENSIONS["DimInsurer"]["Insurer"].dropna().astype(str).tolist()
+    authorized = get_authorized_insurers(all_insurers)
+    dim_insurer = [{"Insurer": i, "value": i, "label": i, "SortOrder": idx} for idx, i in enumerate(authorized)]
     dim_age = DIMENSIONS["DimAgeBand"].to_dict("records")
     dim_region = DIMENSIONS["DimRegion"].to_dict("records")
     dim_payment = DIMENSIONS["DimPaymentType"].to_dict("records")
@@ -124,16 +128,21 @@ def update_insurer_diagnostic(insurer, age_band, region, payment_type, product, 
     # Retention card
     if sup.can_show_insurer and insurer:
         market_ret = calc_retention_rate(df_mkt)
-        retained = (df_ins["IsRetained"] & ~df_ins["IsNewToMarket"]).sum()
-        total = len(df_ins[~df_ins["IsNewToMarket"]])
-        bay = bayesian_smooth_rate(int(retained), total, market_ret) if total > 0 else {"posterior_mean": market_ret, "ci_lower": market_ret, "ci_upper": market_ret}
-        ret_card = kpi_card("Your Retention", bay["posterior_mean"], market_ret, ci_lower=bay["ci_lower"], ci_upper=bay["ci_upper"])
+        # Use cache only when no demographic filters (cache is insurer × product × time_window only)
+        cached = get_cached_rate(insurer, product, tw) if not (age_band or region or payment_type) else None
+        if cached:
+            bay = cached
+        else:
+            retained = (df_ins["IsRetained"] & ~df_ins["IsNewToMarket"]).sum()
+            total = len(df_ins[~df_ins["IsNewToMarket"]])
+            bay = bayesian_smooth_rate(int(retained), total, market_ret) if total > 0 else {"posterior_mean": market_ret, "ci_lower": market_ret, "ci_upper": market_ret}
+        ret_card = kpi_card("Your Retention", bay["posterior_mean"], market_ret, ci_lower=bay.get("ci_lower"), ci_upper=bay.get("ci_upper"))
     else:
         ret_card = kpi_card("Your Retention", None, calc_retention_rate(df_mkt), suppression_message=sup.message)
 
-    # Net flow
+    # Net flow (use filtered df for demographic consistency)
     if insurer and sup.can_show_insurer:
-        nf = calc_net_flow(DF_MOTOR, insurer)
+        nf = calc_net_flow(df_mkt, insurer)
         net_div = dbc.Row([
             dbc.Col(kpi_card("Gained", nf["gained"], nf["gained"], format_str="{:.0f}"), md=4),
             dbc.Col(kpi_card("Lost", nf["lost"], nf["lost"], format_str="{:.0f}"), md=4),
@@ -142,10 +151,10 @@ def update_insurer_diagnostic(insurer, age_band, region, payment_type, product, 
     else:
         net_div = html.P("Select an insurer", className="text-muted")
 
-    # Top sources / destinations
+    # Top sources / destinations (use filtered df for demographic consistency)
     if insurer and sup.can_show_insurer:
-        src = calc_top_sources(DF_MOTOR, insurer, 10)
-        dst = calc_top_destinations(DF_MOTOR, insurer, 10)
+        src = calc_top_sources(df_mkt, insurer, 10)
+        dst = calc_top_destinations(df_mkt, insurer, 10)
         fig_src = go.Figure(go.Bar(x=src.values, y=src.index, orientation="h")) if len(src) > 0 else go.Figure()
         fig_dst = go.Figure(go.Bar(x=dst.values, y=dst.index, orientation="h")) if len(dst) > 0 else go.Figure()
         fig_src = create_branded_figure(fig_src, title="Top Sources")

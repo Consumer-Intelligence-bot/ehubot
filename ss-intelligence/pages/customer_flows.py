@@ -13,11 +13,14 @@ from components.filters import insurer_dropdown, age_band_dropdown, region_dropd
 from components.filter_bar import filter_bar
 from components.cards import kpi_card
 from components.branded_chart import create_branded_figure
+from auth.access import get_authorized_insurers
 import dash
 dash.register_page(__name__, path="/customer-flows", name="Customer Flows")
 
 def layout():
-    dim_insurer = DIMENSIONS["DimInsurer"].to_dict("records")
+    all_insurers = DIMENSIONS["DimInsurer"]["Insurer"].dropna().astype(str).tolist()
+    authorized = get_authorized_insurers(all_insurers)
+    dim_insurer = [{"Insurer": i, "value": i, "label": i} for i in authorized]
     dim_age = DIMENSIONS["DimAgeBand"].to_dict("records")
     dim_region = DIMENSIONS["DimRegion"].to_dict("records")
     dim_payment = DIMENSIONS["DimPaymentType"].to_dict("records")
@@ -54,14 +57,14 @@ def update_flows(insurer, age_band, region, payment_type, product, time_window):
         return filter_bar_el, html.P("Select an insurer", className="text-muted"), html.P("Select an insurer", className="text-muted"), html.P("Select an insurer", className="text-muted")
     if not sup.can_show_insurer:
         return filter_bar_el, html.P(sup.message, className="text-muted"), html.Div(), html.Div()
-    nf = calc_net_flow(DF_MOTOR, insurer)
+    nf = calc_net_flow(df_mkt, insurer)
     net_div = dbc.Row([
         dbc.Col(kpi_card("Gained", nf["gained"], nf["gained"], format_str="{:.0f}"), md=4),
         dbc.Col(kpi_card("Lost", nf["lost"], nf["lost"], format_str="{:.0f}"), md=4),
         dbc.Col(kpi_card("Net", nf["net"], nf["net"], format_str="{:.0f}"), md=4),
     ])
-    src = calc_top_sources(DF_MOTOR, insurer, 10)
-    dst = calc_top_destinations(DF_MOTOR, insurer, 10)
+    src = calc_top_sources(df_mkt, insurer, 10)
+    dst = calc_top_destinations(df_mkt, insurer, 10)
     fig_src = go.Figure(go.Bar(x=src.values, y=src.index, orientation="h")) if len(src) > 0 else go.Figure()
     fig_dst = go.Figure(go.Bar(x=dst.values, y=dst.index, orientation="h")) if len(dst) > 0 else go.Figure()
     fig_src = create_branded_figure(fig_src, title="Gaining From")

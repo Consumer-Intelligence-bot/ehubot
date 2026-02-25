@@ -14,6 +14,7 @@ from config import MIN_BASE_PUBLISHABLE
 from components.filters import age_band_dropdown, region_dropdown, payment_type_dropdown, product_toggle, time_window_dropdown
 from components.filter_bar import filter_bar
 from components.branded_chart import create_branded_figure
+from auth.access import get_authorized_insurers
 import dash
 dash.register_page(__name__, path="/insurer-comparison", name="Insurer Comparison")
 
@@ -47,7 +48,8 @@ def update_comparison(age_band, region, payment_type, product, time_window):
     age_band, region, payment_type = _norm(age_band), _norm(region), _norm(payment_type)
     df_mkt = apply_filters(DF_MOTOR, product=product, time_window_months=tw, age_band=age_band, region=region, payment_type=payment_type)
     market_ret = calc_retention_rate(df_mkt)
-    insurers = DIMENSIONS["DimInsurer"]["Insurer"].tolist()
+    all_insurers = DIMENSIONS["DimInsurer"]["Insurer"].dropna().astype(str).tolist()
+    insurers = get_authorized_insurers(all_insurers)
     rows = []
     for ins in insurers:
         df_ins = apply_filters(DF_MOTOR, insurer=ins, product=product, time_window_months=tw, age_band=age_band, region=region, payment_type=payment_type)

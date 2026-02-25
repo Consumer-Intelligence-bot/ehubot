@@ -16,6 +16,7 @@ from components.filters import insurer_dropdown, age_band_dropdown, region_dropd
 from components.filter_bar import filter_bar
 from components.cards import kpi_card
 from components.branded_chart import create_branded_figure
+from auth.access import get_authorized_insurers
 
 import dash
 
@@ -23,7 +24,9 @@ dash.register_page(__name__, path="/channel-pcw", name="Channel & PCW")
 
 
 def layout():
-    dim_insurer = DIMENSIONS["DimInsurer"].to_dict("records")
+    all_insurers = DIMENSIONS["DimInsurer"]["Insurer"].dropna().astype(str).tolist()
+    authorized = get_authorized_insurers(all_insurers)
+    dim_insurer = [{"Insurer": i, "value": i, "label": i} for i in authorized]
     dim_age = DIMENSIONS["DimAgeBand"].to_dict("records")
     dim_region = DIMENSIONS["DimRegion"].to_dict("records")
     dim_payment = DIMENSIONS["DimPaymentType"].to_dict("records")

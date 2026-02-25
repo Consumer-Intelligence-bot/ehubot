@@ -52,6 +52,9 @@ def layout():
                     dbc.Col(html.Div(id="pcw-share-mo"), md=6),
                 ],
             ),
+            dbc.Row(
+                dbc.Col(html.Footer(id="footer-mo", className="text-muted small mt-4")),
+            ),
         ],
         fluid=True,
     )
@@ -66,6 +69,7 @@ def layout():
         Output("why-shop-mo", "children"),
         Output("channel-usage-mo", "children"),
         Output("pcw-share-mo", "children"),
+        Output("footer-mo", "children"),
     ],
     [Input("product-mo", "value"), Input("time-window-mo", "value")],
 )
@@ -123,6 +127,14 @@ def update_market_overview(product, time_window):
     kpi_shop = kpi_card("Shopping Rate", shop, shop, format_str="{:.0%}")
     kpi_switch = kpi_card("Switching Rate", switch, switch, format_str="{:.0%}")
     kpi_retain = kpi_card("Retention Rate", retain, retain, format_str="{:.0%}")
+
+    n = len(df_market)
+    max_ym = df_market["RenewalYearMonth"].max() if "RenewalYearMonth" in df_market.columns else ""
+    period_str = str(max_ym) if pd.notna(max_ym) and max_ym else "—"
+    footer = html.Div(
+        f"Data period: {period_str} | n={n:,} | (c) Consumer Intelligence 2026",
+        className="text-muted small",
+    )
     return (
         kpi_shop,
         kpi_switch,
@@ -131,4 +143,5 @@ def update_market_overview(product, time_window):
         html.Div([html.H6("Why Customers Shop", className="mb-2"), why_table]),
         channel_div,
         pcw_div,
+        footer,
     )

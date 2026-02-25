@@ -29,8 +29,9 @@ def _create_ci_template():
     pio.templates["ci_brand"] = ci_template
 
 
-# Ensure template exists on import
+# Ensure template exists on import and set as default
 _create_ci_template()
+pio.templates.default = "ci_brand"
 
 
 def create_branded_figure(
