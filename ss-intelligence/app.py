@@ -85,4 +85,4 @@ if _auth_user and _auth_pass:
     BasicAuth(app, {_auth_user: _auth_pass})
 
 if __name__ == "__main__":
-    app.run_server(debug=True, port=8050)
+    app.run(debug=True, port=8050)
