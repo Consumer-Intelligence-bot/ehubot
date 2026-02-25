@@ -72,7 +72,7 @@ def layout():
         Output("footer-mo", "children", allow_duplicate=True),
     ],
     [Input("product-mo", "value"), Input("time-window-mo", "value")],
-    prevent_initial_call=False,
+    prevent_initial_call="initial_duplicate",
 )
 def update_market_overview(product, time_window):
     product = product or "Motor"
