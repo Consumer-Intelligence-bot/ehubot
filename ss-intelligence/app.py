@@ -2,6 +2,7 @@
 Shopping & Switching Intelligence - Dash application.
 """
 import os
+import sys
 from pathlib import Path
 
 try:
@@ -11,13 +12,13 @@ except ImportError:
     pass
 
 import dash
-from dash import html, dcc
+from dash import html, dcc, callback, Input, Output
 import dash_bootstrap_components as dbc
 
 # Add project root to path
 sys_path = Path(__file__).resolve().parent
-if str(sys_path) not in __import__("sys").path:
-    __import__("sys").path.insert(0, str(sys_path))
+if str(sys_path) not in sys.path:
+    sys.path.insert(0, str(sys_path))
 
 from data.loader import load_data
 from data.dimensions import get_all_dimensions
@@ -43,6 +44,21 @@ app = dash.Dash(
     external_stylesheets=[dbc.themes.BOOTSTRAP],
     suppress_callback_exceptions=True,
 )
+
+# Market Overview lives outside Dash Pages to avoid duplicate callback registration for path="/"
+from views.market_overview import layout as market_overview_layout, register_callbacks as register_market_overview
+register_market_overview(app, DF_MOTOR, DF_HOME)
+
+
+@callback(
+    Output("page-content", "children"),
+    Input("url", "pathname"),
+)
+def display_page(pathname):
+    if pathname == "/" or pathname is None:
+        return market_overview_layout(DF_MOTOR, DF_HOME)
+    return dbc.Container(dash.page_container, fluid=True, className="mb-5")
+
 
 app.layout = html.Div(
     [
@@ -71,7 +87,7 @@ app.layout = html.Div(
             dark=True,
             className="mb-3",
         ),
-        dbc.Container(dash.page_container, fluid=True, className="mb-5"),
+        html.Div(id="page-content"),
     ]
 )
 
