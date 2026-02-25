@@ -11,7 +11,7 @@ except ImportError:
     pass
 
 import dash
-from dash import html, dcc
+from dash import html, dcc, callback, Output, Input
 import dash_bootstrap_components as dbc
 
 # Add project root to path
@@ -50,10 +50,10 @@ app.layout = html.Div(
         dbc.Navbar(
             dbc.Container(
                 [
-                    dbc.NavbarBrand("Shopping & Switching Intelligence", href="/", className="fw-bold"),
+                    dbc.NavbarBrand("Shopping & Switching Intelligence", href="/market-overview", className="fw-bold"),
                     dbc.Nav(
                         [
-                            dbc.NavItem(dbc.NavLink("Market Overview", href="/")),
+                            dbc.NavItem(dbc.NavLink("Market Overview", href="/market-overview")),
                             dbc.NavItem(dbc.NavLink("Insurer Diagnostic", href="/insurer-diagnostic")),
                             dbc.NavItem(dbc.NavLink("Comparison", href="/insurer-comparison")),
                             dbc.NavItem(dbc.NavLink("Channel & PCW", href="/channel-pcw")),
@@ -74,6 +74,19 @@ app.layout = html.Div(
         dbc.Container(dash.page_container, fluid=True, className="mb-5"),
     ]
 )
+
+
+@callback(
+    Output("url", "pathname"),
+    Input("url", "pathname"),
+    prevent_initial_call=False,
+)
+def redirect_root(pathname):
+    """Redirect / to /market-overview."""
+    if pathname == "/" or pathname is None:
+        return "/market-overview"
+    return dash.no_update
+
 
 server = app.server
 

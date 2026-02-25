@@ -19,7 +19,7 @@ from components.filters import product_toggle, time_window_dropdown
 from components.branded_chart import create_branded_figure
 
 import dash
-dash.register_page(__name__, path="/", name="Market Overview")
+dash.register_page(__name__, path="/market-overview", name="Market Overview")
 
 def layout():
     return dbc.Container(
@@ -38,9 +38,8 @@ def layout():
 
 
 @callback(
-    Output("market-overview-content-mo", "children", allow_duplicate=True),
+    Output("market-overview-content-mo", "children"),
     [Input("product-mo", "value"), Input("time-window-mo", "value")],
-    prevent_initial_call="initial_duplicate",
 )
 def update_market_overview(product, time_window):
     product = product or "Motor"
