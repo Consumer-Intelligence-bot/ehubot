@@ -98,10 +98,12 @@ pip install -r requirements.txt
 
 ### 3. Data
 
-Data loads automatically from `../public/data/motor_main_data_demo.csv` (in repo). For production CSV:
+Data loads from `ss-intelligence/data/raw/` (canonical location). Supported filenames:
 
-- Place `MainData_Motor.csv` and/or `MainData_Home.csv` in `ss-intelligence/data/raw/`
-- Run refresh: `python -m data.refresh`
+- **Motor:** `motor all data.csv`, `motor_main_data.csv`, `motor_main_data_demo.csv`, `motor.csv`
+- **Home:** `all home data.csv`, `home_main_data.csv`, `ff_home_updated.csv`, `ff_home.csv`, `home.csv`
+
+Fallback: `../public/data/` if not found in `data/raw/`. Run refresh: `python -m data.refresh`
 
 ### 4. Run with gunicorn (production)
 

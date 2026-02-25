@@ -74,10 +74,10 @@ def load_data(product: str) -> tuple[pd.DataFrame, dict]:
         metadata["row_count"] = len(df)
         return df, metadata
 
-    # 2. Try CSV in data/raw/ - apply transforms
+    # 2. Try CSV in data/raw/ - apply transforms (canonical location for project data)
     raw_files = {
-        "Motor": ["motor all data.csv", "motor_main_data.csv", "motor_main_data_demo.csv", "motor.csv"],
-        "Home": ["all home data.csv", "home_main_data.csv", "home.csv"],
+        "Motor": ["motor all data.csv", "motor_main_data.csv", "motor_main_data_demo.csv", "motor main data.csv", "motor main data demo.csv", "motor.csv"],
+        "Home": ["all home data.csv", "home_main_data.csv", "ff_home_updated.csv", "ff_home.csv", "home.csv"],
     }
     for fname in raw_files.get(product, [f"{product.lower()}.csv"]):
         candidate = RAW_DIR / fname
@@ -90,8 +90,8 @@ def load_data(product: str) -> tuple[pd.DataFrame, dict]:
 
     # 3. Fallback: ../public/data/
     fallback_files = {
-        "Motor": ["motor all data.csv", "motor_main_data_demo.csv", "motor_main_data.csv"],
-        "Home": ["all home data.csv", "home_main_data.csv"],
+        "Motor": ["motor all data.csv", "motor_main_data.csv", "motor_main_data_demo.csv", "motor main data.csv", "motor main data demo.csv"],
+        "Home": ["all home data.csv", "home_main_data.csv", "ff_home_updated.csv", "ff_home.csv"],
     }
     for fname in fallback_files.get(product, []):
         candidate = FALLBACK_DIR / fname
